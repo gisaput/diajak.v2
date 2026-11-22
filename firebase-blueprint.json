@@ -1,0 +1,238 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile with city preference and organizer KYC verification status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the user." },
+        "displayName": { "type": "string", "description": "Display name shown in profile, bookings, and chats." },
+        "bio": { "type": "string", "description": "Short participant or community bio." },
+        "city": { "type": "string", "description": "Selected city for nearby activity discovery." },
+        "photoUrl": { "type": "string", "description": "Profile avatar URL or local Photo Picker URI." },
+        "interests": { "type": "array", "description": "Selected favorite activity niches." },
+        "organizerVerified": { "type": "boolean", "description": "True only after submitting valid KTP KYC document." },
+        "kycStatus": { "type": "string", "enum": ["UNVERIFIED", "VERIFIED"], "description": "Organizer verification status." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp when profile was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp when profile was last updated." }
+      },
+      "required": ["userId", "displayName", "city", "organizerVerified", "kycStatus", "createdAt", "updatedAt"]
+    },
+    "KycDocument": {
+      "title": "KycDocument",
+      "description": "Private organizer KTP identity document required before publishing activities.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "nikNumber": { "type": "string" },
+        "documentPhotoUri": { "type": "string" },
+        "status": { "type": "string", "enum": ["VERIFIED"] },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fullName", "nikNumber", "documentPhotoUri", "status", "submittedAt"]
+    },
+    "FavoriteItem": {
+      "title": "FavoriteItem",
+      "description": "User's loved/saved activity reference.",
+      "type": "object",
+      "properties": {
+        "activityId": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["activityId", "savedAt"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "In-app notification item for bookings, messages, KYC, reviews, and wallet updates.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "type": { "type": "string", "enum": ["BOOKING", "MESSAGE", "KYC", "REVIEW", "WALLET", "SYSTEM"] },
+        "relatedId": { "type": "string" },
+        "readState": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "body", "type", "relatedId", "readState", "createdAt"]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable organizer wallet income or withdrawal ledger entry.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["INCOME", "WITHDRAWAL"] },
+        "amount": { "type": "integer" },
+        "title": { "type": "string" },
+        "referenceId": { "type": "string" },
+        "status": { "type": "string", "enum": ["SUCCESS", "PROCESSING"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "title", "referenceId", "status", "createdAt"]
+    },
+    "ActivityItem": {
+      "title": "ActivityItem",
+      "description": "Social activity listing published by verified organizers or saved as draft.",
+      "type": "object",
+      "properties": {
+        "organizerId": { "type": "string" },
+        "organizerName": { "type": "string" },
+        "organizerAvatarKey": { "type": "string" },
+        "organizerVerified": { "type": "boolean" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "categoryEmoji": { "type": "string" },
+        "city": { "type": "string" },
+        "locationName": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "eventDateMillis": { "type": "integer" },
+        "timeLabel": { "type": "string" },
+        "priceIdr": { "type": "integer" },
+        "quota": { "type": "integer" },
+        "joinedCount": { "type": "integer" },
+        "favoriteCount": { "type": "integer" },
+        "viralScore": { "type": "integer" },
+        "photoKeys": { "type": "array" },
+        "benefits": { "type": "array" },
+        "joinedUserNames": { "type": "array" },
+        "status": { "type": "string", "enum": ["DRAFT", "PUBLISHED", "CLOSED"] },
+        "averageRating": { "type": "number" },
+        "reviewCount": { "type": "integer" },
+        "seededSample": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "organizerId", "organizerName", "organizerVerified", "title", "description",
+        "category", "categoryEmoji", "city", "locationName", "latitude", "longitude",
+        "eventDateMillis", "timeLabel", "priceIdr", "quota", "joinedCount",
+        "favoriteCount", "viralScore", "photoKeys", "benefits", "joinedUserNames",
+        "status", "averageRating", "reviewCount", "seededSample", "createdAt", "updatedAt"
+      ]
+    },
+    "ActivityReview": {
+      "title": "ActivityReview",
+      "description": "Participant review and optional organizer reply for an activity.",
+      "type": "object",
+      "properties": {
+        "activityId": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "organizerReply": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["activityId", "organizerId", "authorId", "authorName", "rating", "comment", "organizerReply", "createdAt", "updatedAt"]
+    },
+    "BookingTicket": {
+      "title": "BookingTicket",
+      "description": "Ticket booking record and digital e-ticket shared between participant and organizer.",
+      "type": "object",
+      "properties": {
+        "activityId": { "type": "string" },
+        "activityTitle": { "type": "string" },
+        "activityPhotoKey": { "type": "string" },
+        "activityLocation": { "type": "string" },
+        "activityDateMillis": { "type": "integer" },
+        "activityTimeLabel": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "organizerName": { "type": "string" },
+        "ticketCount": { "type": "integer" },
+        "totalPriceIdr": { "type": "integer" },
+        "paymentMethod": { "type": "string", "enum": ["GRATIS", "QRIS", "GOPAY", "OVO", "DANA", "SHOPEEPAY"] },
+        "ticketCode": { "type": "string" },
+        "status": { "type": "string", "enum": ["CONFIRMED", "CHECKED_IN", "CANCELLED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "activityId", "activityTitle", "activityPhotoKey", "activityLocation",
+        "activityDateMillis", "activityTimeLabel", "userId", "userName",
+        "organizerId", "organizerName", "ticketCount", "totalPriceIdr",
+        "paymentMethod", "ticketCode", "status", "createdAt", "updatedAt"
+      ]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Direct participant-organizer chat or activity group chat.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["DIRECT", "GROUP"] },
+        "activityId": { "type": "string" },
+        "activityTitle": { "type": "string" },
+        "title": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "lastMessage": { "type": "string" },
+        "lastMessageSenderName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "activityId", "activityTitle", "title", "organizerId", "participantUids", "lastMessage", "lastMessageSenderName", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time message inside a direct or group conversation.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["conversationId", "senderId", "senderName", "text", "participantUids", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and organizer verification state."
+    },
+    "/users/{userId}/kycDocuments/{docId}": {
+      "schema": { "$ref": "#/entities/KycDocument" },
+      "description": "Private KTP KYC verification documents for organizers."
+    },
+    "/users/{userId}/favorites/{activityId}": {
+      "schema": { "$ref": "#/entities/FavoriteItem" },
+      "description": "Private list of loved/saved activity IDs per user."
+    },
+    "/users/{userId}/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "Private in-app notification feed per user."
+    },
+    "/users/{userId}/walletTransactions/{txId}": {
+      "schema": { "$ref": "#/entities/WalletTransaction" },
+      "description": "Private organizer wallet income and withdrawal ledger."
+    },
+    "/activities/{activityId}": {
+      "schema": { "$ref": "#/entities/ActivityItem" },
+      "description": "Published social activities and organizer drafts."
+    },
+    "/activities/{activityId}/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/ActivityReview" },
+      "description": "Reviews posted by participants and organizer replies."
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/BookingTicket" },
+      "description": "Confirmed booking tickets visible to participant and organizer."
+    },
+    "/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/Conversation" },
+      "description": "Direct and activity group chat threads."
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Messages inside a direct or group chat thread."
+    }
+  }
+}

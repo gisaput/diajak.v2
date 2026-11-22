@@ -1,0 +1,6 @@
+{
+  "name": "diajak",
+  "description": "Social activity marketplace (diajak.com) untuk menemukan aktivitas, komunitas, RSVP e-tiket, pesan, dan portal penyelenggara.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

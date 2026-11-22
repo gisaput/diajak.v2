@@ -1,0 +1,510 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL PRIMITIVE HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isOrganizerVerifiedUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+             get(/databases/$(database)/documents/users/$(uid)).data.organizerVerified == true;
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 240)) &&
+             data.city is string && data.city.size() >= 1 && data.city.size() <= 60 &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             (!('interests' in data) || (data.interests is list && data.interests.size() <= 15 && (data.interests.size() == 0 || data.interests[0] is string))) &&
+             data.organizerVerified is bool &&
+             data.kycStatus in ['UNVERIFIED', 'VERIFIED'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidKycDocument(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100 &&
+             data.nikNumber is string && data.nikNumber.matches('^[0-9]{16}$') &&
+             data.documentPhotoUri is string && data.documentPhotoUri.size() >= 1 && data.documentPhotoUri.size() <= 1000 &&
+             data.status == 'VERIFIED' &&
+             data.submittedAt is timestamp && data.submittedAt <= request.time;
+    }
+
+    function isValidFavorite(data) {
+      return data.activityId is string && isValidId(data.activityId) &&
+             data.savedAt is timestamp && data.savedAt <= request.time;
+    }
+
+    function isValidNotification(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.body is string && data.body.size() >= 1 && data.body.size() <= 400 &&
+             data.type in ['BOOKING', 'MESSAGE', 'KYC', 'REVIEW', 'WALLET', 'SYSTEM'] &&
+             data.relatedId is string && data.relatedId.size() <= 128 &&
+             data.readState is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidWalletTx(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.type in ['INCOME', 'WITHDRAWAL'] &&
+             data.amount is int && data.amount > 0 && data.amount <= 1000000000 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.referenceId is string && data.referenceId.size() <= 128 &&
+             data.status in ['SUCCESS', 'PROCESSING'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidActivity(data) {
+      return data.organizerId is string && data.organizerId.size() >= 1 && data.organizerId.size() <= 128 &&
+             data.organizerName is string && data.organizerName.size() >= 1 && data.organizerName.size() <= 80 &&
+             (!('organizerAvatarKey' in data) || (data.organizerAvatarKey is string && data.organizerAvatarKey.size() <= 500)) &&
+             data.organizerVerified is bool &&
+             data.title is string && data.title.size() >= 3 && data.title.size() <= 120 &&
+             data.description is string && data.description.size() >= 10 && data.description.size() <= 2000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             data.categoryEmoji is string && data.categoryEmoji.size() >= 1 && data.categoryEmoji.size() <= 16 &&
+             data.city is string && data.city.size() >= 1 && data.city.size() <= 60 &&
+             data.locationName is string && data.locationName.size() >= 2 && data.locationName.size() <= 150 &&
+             data.latitude is number && data.latitude >= -90 && data.latitude <= 90 &&
+             data.longitude is number && data.longitude >= -180 && data.longitude <= 180 &&
+             data.eventDateMillis is int && data.eventDateMillis > 0 &&
+             data.timeLabel is string && data.timeLabel.size() >= 1 && data.timeLabel.size() <= 40 &&
+             data.priceIdr is int && data.priceIdr >= 0 && data.priceIdr <= 100000000 &&
+             data.quota is int && data.quota >= 1 && data.quota <= 10000 &&
+             data.joinedCount is int && data.joinedCount >= 0 && data.joinedCount <= 10000 &&
+             data.favoriteCount is int && data.favoriteCount >= 0 && data.favoriteCount <= 1000000 &&
+             data.viralScore is int && data.viralScore >= 0 && data.viralScore <= 1000000 &&
+             data.photoKeys is list && data.photoKeys.size() >= 1 && data.photoKeys.size() <= 6 && data.photoKeys[0] is string &&
+             data.benefits is list && data.benefits.size() >= 1 && data.benefits.size() <= 12 && data.benefits[0] is string &&
+             data.joinedUserNames is list && data.joinedUserNames.size() <= 20 && (data.joinedUserNames.size() == 0 || data.joinedUserNames[0] is string) &&
+             data.status in ['DRAFT', 'PUBLISHED', 'CLOSED'] &&
+             data.averageRating is number && data.averageRating >= 0 && data.averageRating <= 5 &&
+             data.reviewCount is int && data.reviewCount >= 0 && data.reviewCount <= 100000 &&
+             data.seededSample is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidReview(data) {
+      return data.activityId is string && isValidId(data.activityId) &&
+             data.organizerId is string && data.organizerId.size() >= 1 && data.organizerId.size() <= 128 &&
+             data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() >= 2 && data.comment.size() <= 600 &&
+             data.organizerReply is string && data.organizerReply.size() <= 600 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidBooking(data) {
+      return data.activityId is string && isValidId(data.activityId) &&
+             data.activityTitle is string && data.activityTitle.size() >= 1 && data.activityTitle.size() <= 120 &&
+             data.activityPhotoKey is string && data.activityPhotoKey.size() <= 500 &&
+             data.activityLocation is string && data.activityLocation.size() >= 1 && data.activityLocation.size() <= 150 &&
+             data.activityDateMillis is int && data.activityDateMillis > 0 &&
+             data.activityTimeLabel is string && data.activityTimeLabel.size() >= 1 && data.activityTimeLabel.size() <= 40 &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 80 &&
+             data.organizerId is string && data.organizerId.size() >= 1 && data.organizerId.size() <= 128 &&
+             data.organizerName is string && data.organizerName.size() >= 1 && data.organizerName.size() <= 80 &&
+             data.ticketCount is int && data.ticketCount >= 1 && data.ticketCount <= 10 &&
+             data.totalPriceIdr is int && data.totalPriceIdr >= 0 && data.totalPriceIdr <= 1000000000 &&
+             data.paymentMethod in ['GRATIS', 'QRIS', 'GOPAY', 'OVO', 'DANA', 'SHOPEEPAY'] &&
+             data.ticketCode is string && data.ticketCode.size() >= 4 && data.ticketCode.size() <= 40 &&
+             data.status in ['CONFIRMED', 'CHECKED_IN', 'CANCELLED'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidConversation(data) {
+      return data.type in ['DIRECT', 'GROUP'] &&
+             data.activityId is string && data.activityId.size() <= 128 &&
+             data.activityTitle is string && data.activityTitle.size() <= 120 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.organizerId is string && data.organizerId.size() >= 1 && data.organizerId.size() <= 128 &&
+             data.participantUids is list && data.participantUids.size() >= 1 && data.participantUids.size() <= 100 && data.participantUids[0] is string &&
+             data.lastMessage is string && data.lastMessage.size() <= 500 &&
+             data.lastMessageSenderName is string && data.lastMessageSenderName.size() <= 80 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.conversationId is string && isValidId(data.conversationId) &&
+             data.senderId is string && data.senderId.size() >= 1 && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 1000 &&
+             data.participantUids is list && data.participantUids.size() >= 1 && data.participantUids.size() <= 100 && data.participantUids[0] is string &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // --- 1. USERS & PRIVATE SUBCOLLECTIONS ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().organizerVerified == false &&
+                       incoming().kycStatus == 'UNVERIFIED' &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'city', 'organizerVerified', 'kycStatus', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'bio', 'city', 'photoUrl', 'interests', 'organizerVerified', 'kycStatus', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Action A: Edit profile fields
+                         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bio', 'city', 'photoUrl', 'interests', 'updatedAt']) ||
+                         // Action B: Mark organizer verified ONLY when KTP document exists atomically
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['organizerVerified', 'kycStatus', 'updatedAt']) &&
+                           incoming().organizerVerified == true &&
+                           incoming().kycStatus == 'VERIFIED' &&
+                           existsAfter(/databases/$(database)/documents/users/$(userId)/kycDocuments/ktp)
+                         )
+                       );
+
+      allow delete: if false;
+
+      match /kycDocuments/{docId} {
+        allow get: if isOwner(userId) && isValidId(docId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(docId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'fullName', 'nikNumber', 'documentPhotoUri', 'status', 'submittedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'fullName', 'nikNumber', 'documentPhotoUri', 'status', 'submittedAt']) &&
+                         isValidKycDocument(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(docId) &&
+                         isValidKycDocument(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'nikNumber', 'documentPhotoUri', 'status', 'submittedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(docId);
+      }
+
+      match /favorites/{activityId} {
+        allow get: if isOwner(userId) && isValidId(activityId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(activityId) &&
+                         incoming().activityId == activityId &&
+                         incoming().keys().hasAll(['activityId', 'savedAt']) &&
+                         incoming().keys().hasOnly(['activityId', 'savedAt']) &&
+                         isValidFavorite(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(activityId) &&
+                         isValidFavorite(incoming()) &&
+                         incoming().activityId == existing().activityId &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['savedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(activityId);
+      }
+
+      match /notifications/{notifId} {
+        allow get: if isOwner(userId) && isValidId(notifId);
+        allow list: if isOwner(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(notifId) &&
+                         incoming().keys().hasAll(['title', 'body', 'type', 'relatedId', 'readState', 'createdAt']) &&
+                         incoming().keys().hasOnly(['title', 'body', 'type', 'relatedId', 'readState', 'createdAt']) &&
+                         isValidNotification(incoming()) &&
+                         (request.auth.uid == userId || incoming().type in ['BOOKING', 'MESSAGE', 'REVIEW']);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(notifId) &&
+                         isValidNotification(incoming()) &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['readState']);
+
+        allow delete: if isOwner(userId) && isValidId(notifId);
+      }
+
+      match /walletTransactions/{txId} {
+        allow get: if isOwner(userId) && isValidId(txId);
+        allow list: if isOwner(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(txId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'type', 'amount', 'title', 'referenceId', 'status', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'type', 'amount', 'title', 'referenceId', 'status', 'createdAt']) &&
+                         isValidWalletTx(incoming()) &&
+                         (request.auth.uid == userId || incoming().type == 'INCOME');
+
+        allow update, delete: if false;
+      }
+    }
+
+    // --- 2. ACTIVITIES & REVIEWS ---
+    match /activities/{activityId} {
+      allow get: if isValidId(activityId) &&
+                    (resource == null || resource.data.status == 'PUBLISHED' || (isSignedIn() && resource.data.organizerId == request.auth.uid));
+
+      allow list: if resource.data.status == 'PUBLISHED' || (isSignedIn() && resource.data.organizerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+                       isValidId(activityId) &&
+                       incoming().keys().hasAll([
+                         'organizerId', 'organizerName', 'organizerVerified', 'title', 'description',
+                         'category', 'categoryEmoji', 'city', 'locationName', 'latitude', 'longitude',
+                         'eventDateMillis', 'timeLabel', 'priceIdr', 'quota', 'joinedCount',
+                         'favoriteCount', 'viralScore', 'photoKeys', 'benefits', 'joinedUserNames',
+                         'status', 'averageRating', 'reviewCount', 'seededSample', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'organizerId', 'organizerName', 'organizerAvatarKey', 'organizerVerified', 'title', 'description',
+                         'category', 'categoryEmoji', 'city', 'locationName', 'latitude', 'longitude',
+                         'eventDateMillis', 'timeLabel', 'priceIdr', 'quota', 'joinedCount',
+                         'favoriteCount', 'viralScore', 'photoKeys', 'benefits', 'joinedUserNames',
+                         'status', 'averageRating', 'reviewCount', 'seededSample', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidActivity(incoming()) &&
+                       (
+                         // Branch 1: Organizer creates own DRAFT (no KYC required yet)
+                         (
+                           incoming().organizerId == request.auth.uid &&
+                           incoming().seededSample == false &&
+                           incoming().status == 'DRAFT'
+                         ) ||
+                         // Branch 2: Verified Organizer publishes live activity (KYC required!)
+                         (
+                           incoming().organizerId == request.auth.uid &&
+                           incoming().seededSample == false &&
+                           incoming().status == 'PUBLISHED' &&
+                           incoming().organizerVerified == true &&
+                           isOrganizerVerifiedUser(request.auth.uid)
+                         ) ||
+                         // Branch 3: Curated showcase catalog seed (sample_* IDs only)
+                         (
+                           activityId.matches('^sample_[a-z0-9_]+$') &&
+                           incoming().seededSample == true &&
+                           incoming().status == 'PUBLISHED'
+                         )
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(activityId) &&
+                       isValidActivity(incoming()) &&
+                       incoming().organizerId == existing().organizerId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().seededSample == existing().seededSample &&
+                       (
+                         // Action A: Organizer edits or closes own activity (publishing requires KYC verification)
+                         (
+                           existing().organizerId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'title', 'description', 'category', 'categoryEmoji', 'city', 'locationName',
+                             'latitude', 'longitude', 'eventDateMillis', 'timeLabel', 'priceIdr', 'quota',
+                             'photoKeys', 'benefits', 'status', 'organizerVerified', 'updatedAt'
+                           ]) &&
+                           (incoming().status != 'PUBLISHED' || isOrganizerVerifiedUser(request.auth.uid))
+                         ) ||
+                         // Action B: Participant joins activity during booking
+                         (
+                           existing().status == 'PUBLISHED' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['joinedCount', 'joinedUserNames', 'viralScore', 'updatedAt']) &&
+                           incoming().joinedCount >= existing().joinedCount
+                         ) ||
+                         // Action C: Participant toggles favorite counter
+                         (
+                           existing().status == 'PUBLISHED' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['favoriteCount', 'viralScore', 'updatedAt'])
+                         ) ||
+                         // Action D: Participant posts review updating aggregate rating
+                         (
+                           existing().status == 'PUBLISHED' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['averageRating', 'reviewCount', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() &&
+                       isValidId(activityId) &&
+                       existing().organizerId == request.auth.uid;
+
+      match /reviews/{reviewId} {
+        allow get: if isValidId(activityId) && isValidId(reviewId);
+        allow list: if resource.data.activityId == activityId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(activityId) &&
+                         isValidId(reviewId) &&
+                         incoming().authorId == request.auth.uid &&
+                         incoming().activityId == activityId &&
+                         incoming().organizerReply == '' &&
+                         incoming().keys().hasAll(['activityId', 'organizerId', 'authorId', 'authorName', 'rating', 'comment', 'organizerReply', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['activityId', 'organizerId', 'authorId', 'authorName', 'rating', 'comment', 'organizerReply', 'createdAt', 'updatedAt']) &&
+                         isValidReview(incoming()) &&
+                         exists(/databases/$(database)/documents/activities/$(activityId));
+
+        allow update: if isSignedIn() &&
+                         isValidId(activityId) &&
+                         isValidId(reviewId) &&
+                         isValidReview(incoming()) &&
+                         incoming().authorId == existing().authorId &&
+                         incoming().activityId == existing().activityId &&
+                         incoming().organizerId == existing().organizerId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'comment', 'updatedAt'])) ||
+                           (existing().organizerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['organizerReply', 'updatedAt']))
+                         );
+
+        allow delete: if isSignedIn() &&
+                         isValidId(activityId) &&
+                         isValidId(reviewId) &&
+                         existing().authorId == request.auth.uid;
+      }
+    }
+
+    // --- 3. BOOKINGS (RSVP E-TICKETS) ---
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() &&
+                    isValidId(bookingId) &&
+                    (resource == null || resource.data.userId == request.auth.uid || resource.data.organizerId == request.auth.uid);
+
+      allow list: if isSignedIn() &&
+                     (resource.data.userId == request.auth.uid || resource.data.organizerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+                       isValidId(bookingId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'CONFIRMED' &&
+                       incoming().keys().hasAll([
+                         'activityId', 'activityTitle', 'activityPhotoKey', 'activityLocation',
+                         'activityDateMillis', 'activityTimeLabel', 'userId', 'userName',
+                         'organizerId', 'organizerName', 'ticketCount', 'totalPriceIdr',
+                         'paymentMethod', 'ticketCode', 'status', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'activityId', 'activityTitle', 'activityPhotoKey', 'activityLocation',
+                         'activityDateMillis', 'activityTimeLabel', 'userId', 'userName',
+                         'organizerId', 'organizerName', 'ticketCount', 'totalPriceIdr',
+                         'paymentMethod', 'ticketCode', 'status', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidBooking(incoming()) &&
+                       exists(/databases/$(database)/documents/activities/$(incoming().activityId));
+
+      allow update: if isSignedIn() &&
+                       isValidId(bookingId) &&
+                       isValidBooking(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().organizerId == existing().organizerId &&
+                       incoming().activityId == existing().activityId &&
+                       incoming().createdAt == existing().createdAt &&
+                       existing().status == 'CONFIRMED' &&
+                       (
+                         // Organizer checks in participant ticket
+                         (existing().organizerId == request.auth.uid && incoming().status == 'CHECKED_IN' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+                         // Participant cancels confirmed ticket
+                         (existing().userId == request.auth.uid && incoming().status == 'CANCELLED' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+                       );
+
+      allow delete: if false;
+    }
+
+    // --- 4. CONVERSATIONS & MESSAGES ---
+    match /conversations/{conversationId} {
+      allow get: if isSignedIn() &&
+                    isValidId(conversationId) &&
+                    (resource == null || request.auth.uid in resource.data.participantUids);
+
+      allow list: if isSignedIn() &&
+                     request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(conversationId) &&
+                       request.auth.uid in incoming().participantUids &&
+                       incoming().keys().hasAll([
+                         'type', 'activityId', 'activityTitle', 'title', 'organizerId',
+                         'participantUids', 'lastMessage', 'lastMessageSenderName', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'type', 'activityId', 'activityTitle', 'title', 'organizerId',
+                         'participantUids', 'lastMessage', 'lastMessageSenderName', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidConversation(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(conversationId) &&
+                       isValidConversation(incoming()) &&
+                       incoming().type == existing().type &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Existing participant updates latest message preview
+                         (
+                           request.auth.uid in existing().participantUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageSenderName', 'updatedAt'])
+                         ) ||
+                         // Newly booked participant joins activity GROUP chat
+                         (
+                           existing().type == 'GROUP' &&
+                           request.auth.uid in incoming().participantUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['participantUids', 'lastMessage', 'lastMessageSenderName', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() &&
+                      isValidId(conversationId) &&
+                      isValidId(messageId) &&
+                      (resource == null || request.auth.uid in resource.data.participantUids);
+
+        allow list: if isSignedIn() &&
+                       request.auth.uid in resource.data.participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(conversationId) &&
+                         isValidId(messageId) &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().conversationId == conversationId &&
+                         request.auth.uid in incoming().participantUids &&
+                         incoming().keys().hasAll(['conversationId', 'senderId', 'senderName', 'text', 'participantUids', 'createdAt']) &&
+                         incoming().keys().hasOnly(['conversationId', 'senderId', 'senderName', 'text', 'participantUids', 'createdAt']) &&
+                         isValidMessage(incoming());
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

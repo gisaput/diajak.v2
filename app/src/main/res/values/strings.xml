@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">diajak</string>
+    <string name="app_domain">diajak.com</string>
+    <string name="nav_home">Beranda</string>
+    <string name="nav_favorites">Favorit</string>
+    <string name="nav_tickets">Tiket</string>
+    <string name="nav_messages">Pesan</string>
+    <string name="nav_profile">Profil</string>
+    <string name="action_join_activity">Ikuti</string>
+    <string name="action_sign_in_google">Masuk dengan Google</string>
+    <string name="label_about_activity">Tentang Aktivitas</string>
+    <string name="label_what_you_get">Yang Didapat</string>
+    <string name="label_organizer">Penyelenggara</string>
+    <string name="label_reviews">Ulasan Aktivitas</string>
+    <string name="label_organizer_portal">Portal Penyelenggara</string>
+    <string name="home_greeting_subtitle">Mau diajak kemana?</string>
+    <string name="cd_profile_avatar">Profil pengguna</string>
+    <string name="home_search_placeholder">Cari acara, aktivitas, komunitas, kota</string>
+</resources>
