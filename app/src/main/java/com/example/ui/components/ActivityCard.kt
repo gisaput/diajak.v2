@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +43,18 @@ import com.example.ui.theme.DiajakPhotoOverlay
 import com.example.ui.theme.DiajakRadius
 import com.example.ui.theme.DiajakSpacing
 import com.example.ui.theme.HeartRed
+
+/**
+ * Konstanta ukuran bersama agar [ActivityFeedCard] dan [ActivityFeedCardSkeleton]
+ * selalu sinkron saat bentuk, tinggi, atau ukuran badge kartu diubah.
+ */
+object ActivityFeedCardDefaults {
+    val Height = 310.dp
+    val DateBadgeSize = 54.dp
+    val AvatarSize = 32.dp
+    val AvatarRowHeight = 34.dp
+    val AvatarOverlapStep = 20.dp
+}
 
 @Composable
 fun ActivityFeedCard(
@@ -58,7 +72,7 @@ fun ActivityFeedCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(310.dp)
+            .height(ActivityFeedCardDefaults.Height)
             .clip(DiajakRadius.Hero)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(onClick = onCardClick)
@@ -97,7 +111,7 @@ fun ActivityFeedCard(
             Surface(
                 shape = CircleShape,
                 color = DiajakPhotoOverlay.ChipSurface,
-                modifier = Modifier.size(54.dp)
+                modifier = Modifier.size(ActivityFeedCardDefaults.DateBadgeSize)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -176,14 +190,14 @@ fun JoinedAvatarsBadge(
     val previewNames = names.take(2)
     val extraCount = (totalJoined - previewNames.size).coerceAtLeast(0L)
     Box(
-        modifier = Modifier.height(34.dp),
+        modifier = Modifier.height(ActivityFeedCardDefaults.AvatarRowHeight),
         contentAlignment = Alignment.CenterStart
     ) {
         previewNames.forEachIndexed { index, name ->
             Box(
                 modifier = Modifier
-                    .offset(x = (index * 20).dp)
-                    .size(32.dp)
+                    .offset(x = ActivityFeedCardDefaults.AvatarOverlapStep * index)
+                    .size(ActivityFeedCardDefaults.AvatarSize)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainer)
                     .border(2.dp, DiajakPhotoOverlay.ChipSurface, CircleShape),
@@ -197,11 +211,11 @@ fun JoinedAvatarsBadge(
                 )
             }
         }
-        val countOffset = previewNames.size * 20
+        val countOffset = ActivityFeedCardDefaults.AvatarOverlapStep * previewNames.size
         Box(
             modifier = Modifier
-                .offset(x = countOffset.dp)
-                .size(32.dp)
+                .offset(x = countOffset)
+                .size(ActivityFeedCardDefaults.AvatarSize)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary)
                 .border(2.dp, DiajakPhotoOverlay.ChipSurface, CircleShape),
@@ -215,6 +229,107 @@ fun JoinedAvatarsBadge(
             )
         }
         // Spacer to reserve total width
-        Spacer(modifier = Modifier.width((countOffset + 34).dp))
+        Spacer(modifier = Modifier.width(countOffset + ActivityFeedCardDefaults.AvatarRowHeight))
     }
 }
+
+/**
+ * Skeleton / Shimmer Loading untuk [ActivityFeedCard] (dipakai di Beranda & Favorit).
+ * Berbagi seluruh konstanta tinggi, radius sudut, padding, dan proporsi elemen dengan kartu asli,
+ * menggunakan warna tunggal #E5E5EA (`surfaceContainer`) + sapuan pudar ala Instagram.
+ */
+@Composable
+fun ActivityFeedCardSkeleton(
+    shimmerProgress: Float,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(ActivityFeedCardDefaults.Height)
+            .clip(DiajakRadius.Hero)
+            .diajakShimmerSurface(
+                progress = shimmerProgress,
+                baseColor = MaterialTheme.colorScheme.surfaceContainer,
+                nested = false
+            )
+            .semantics { contentDescription = "Memuat kartu aktivitas" }
+    ) {
+        // Siluet baris atas: Badge tanggal bulat + 2 baris judul + tombol favorit bulat
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopStart)
+                .padding(DiajakSpacing.CardPadding),
+            verticalAlignment = Alignment.Top
+        ) {
+            DiajakShimmerBlock(
+                progress = shimmerProgress,
+                shape = CircleShape,
+                nested = true,
+                modifier = Modifier.size(ActivityFeedCardDefaults.DateBadgeSize)
+            )
+
+            Spacer(modifier = Modifier.width(DiajakSpacing.ItemGap))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .fillMaxWidth(0.82f)
+                        .height(16.dp)
+                )
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .fillMaxWidth(0.52f)
+                        .height(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(DiajakSpacing.SmallGap))
+
+            DiajakShimmerBlock(
+                progress = shimmerProgress,
+                shape = CircleShape,
+                nested = true,
+                modifier = Modifier.size(DiajakComponentSize.IconCircle)
+            )
+        }
+
+        // Siluet kanan bawah: 3 bulatan avatar peserta bertumpuk
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(DiajakSpacing.CardPadding)
+                .height(ActivityFeedCardDefaults.AvatarRowHeight),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            repeat(3) { index ->
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = CircleShape,
+                    nested = true,
+                    modifier = Modifier
+                        .offset(x = ActivityFeedCardDefaults.AvatarOverlapStep * index)
+                        .size(ActivityFeedCardDefaults.AvatarSize)
+                )
+            }
+            Spacer(
+                modifier = Modifier.width(
+                    ActivityFeedCardDefaults.AvatarOverlapStep * 2 + ActivityFeedCardDefaults.AvatarRowHeight
+                )
+            )
+        }
+    }
+}
+

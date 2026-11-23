@@ -1,15 +1,17 @@
 package com.example.ui.auth
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,15 +19,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -53,7 +48,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import com.example.R
-import com.example.ui.components.DiajakBackButton
 import com.example.ui.components.DiajakFlatSecondaryButton
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
@@ -74,6 +68,10 @@ fun AuthScreen(
     var isCheckingAuto by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    if (onDismiss != null) {
+        BackHandler(onBack = onDismiss)
+    }
+
     LaunchedEffect(Unit) {
         attemptAutoSignIn(
             context = context,
@@ -89,102 +87,75 @@ fun AuthScreen(
         )
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
+        val availableHeight = maxHeight
+        val isTallViewport = availableHeight >= 780.dp
+        val isCompactViewport = availableHeight < 680.dp
+        val collageHeight = when {
+            isTallViewport -> 236.dp
+            isCompactViewport -> 168.dp
+            else -> 200.dp
+        }
+        val sectionGap = when {
+            isTallViewport -> 20.dp
+            isCompactViewport -> 12.dp
+            else -> 16.dp
+        }
+
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .widthIn(max = 520.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .heightIn(min = availableHeight)
+                .padding(horizontal = DiajakSpacing.ScreenHorizontal, vertical = 14.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(horizontalAlignment = Alignment.Start) {
+            if (!reasonMessage.isNullOrBlank()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(DiajakRadius.Control)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        if (onDismiss != null) {
-                            DiajakBackButton(
-                                onClick = onDismiss,
-                                contentDescription = "Kembali ke Beranda",
-                                inTopAppBar = false,
-                                modifier = Modifier.testTag("auth_back_button")
-                            )
-                        }
-                        Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = DiajakRadius.Small,
-                            color = MaterialTheme.colorScheme.primary
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "d",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "diajak",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Text(
-                                text = "diajak.com",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.LockOpen,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(DiajakIconSize.Inline)
+                    )
+                    Text(
+                        text = reasonMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
+            } else {
+                Spacer(modifier = Modifier.height(0.dp))
+            }
 
-                if (!reasonMessage.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(DiajakSpacing.SectionGap))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(DiajakRadius.Control)
-                            .background(MaterialTheme.colorScheme.surfaceContainer)
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.LockOpen,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(DiajakIconSize.Inline)
-                        )
-                        Text(
-                            text = reasonMessage,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = sectionGap),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 // Editorial photo collage showcasing real activities
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(210.dp),
+                        .height(collageHeight),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Image(
@@ -223,52 +194,27 @@ fun AuthScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(sectionGap))
 
                 Text(
-                    text = "Temukan aktivitas seru & komunitas terdekat.",
+                    text = "Discover, connect, create, experience.",
                     style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "Hyrox, lari pagi, padel, e-sport, fotografi, hingga 69 kategori hobi lainnya. Gratis maupun berbayar, semua dalam satu tempat.",
+                    text = "Diajak membantu menemukan aktivitas, menghubungkan melalui minat, kesempatan membuat aktivitas, dan wujudkan pengalaman nyata.",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(DiajakRadius.Card)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .padding(DiajakSpacing.CardPadding),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    AuthFeatureRow(
-                        icon = Icons.Rounded.Explore,
-                        title = "Aktivitas Aktif & Terdekat",
-                        subtitle = "Rekomendasi berdasarkan lokasi GPS, popularitas, dan tren viral."
-                    )
-                    AuthFeatureRow(
-                        icon = Icons.Rounded.Groups,
-                        title = "Grup Chat & E-Tiket Instan",
-                        subtitle = "Booking mudah via QRIS & E-Wallet, langsung terhubung dengan peserta."
-                    )
-                    AuthFeatureRow(
-                        icon = Icons.Rounded.VerifiedUser,
-                        title = "Penyelenggara Terverifikasi KTP",
-                        subtitle = "Portal penyelenggara lengkap untuk buat acara, kelola peserta & saldo."
-                    )
-                }
             }
 
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (errorMessage != null) {
@@ -277,7 +223,7 @@ fun AuthScreen(
                         shape = DiajakRadius.Control,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp)
+                            .padding(bottom = 10.dp)
                     ) {
                         Text(
                             text = errorMessage.orEmpty(),
@@ -329,7 +275,7 @@ fun AuthScreen(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.AccountCircle,
+                            painter = painterResource(id = R.drawable.ic_google_g),
                             contentDescription = null,
                             modifier = Modifier.size(DiajakIconSize.Primary)
                         )
@@ -342,7 +288,7 @@ fun AuthScreen(
                 }
 
                 if (onDismiss != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     DiajakFlatSecondaryButton(
                         onClick = onDismiss,
                         shape = DiajakRadius.Control,
@@ -366,45 +312,6 @@ fun AuthScreen(
                     textAlign = TextAlign.Center
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun AuthFeatureRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String
-) {
-    Row(
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(DiajakIconSize.Inline)
-            )
-        }
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

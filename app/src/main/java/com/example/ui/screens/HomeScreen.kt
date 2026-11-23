@@ -65,12 +65,14 @@ import com.example.data.DiajakCatalog
 import com.example.data.UiState
 import com.example.ui.DiajakViewModel
 import com.example.ui.components.ActivityFeedCard
+import com.example.ui.components.ActivityFeedCardSkeleton
 import com.example.ui.components.DiajakFlatTextField
 import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.InstagramSpinner
 import com.example.ui.components.NicheChipItem
 import com.example.ui.components.NichePickerBottomSheet
+import com.example.ui.components.rememberDiajakShimmerProgress
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
@@ -344,7 +346,9 @@ fun HomeScreen(
                                 imageVector = Icons.Rounded.Search,
                                 contentDescription = "Cari aktivitas",
                                 tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(DiajakIconSize.Primary)
+                                modifier = Modifier
+                                    .padding(start = 4.dp)
+                                    .size(DiajakIconSize.Primary)
                             )
                         },
                         trailingIcon = {
@@ -354,12 +358,13 @@ fun HomeScreen(
                                     contentDescription = "Hapus pencarian",
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier
+                                        .padding(end = 4.dp)
                                         .size(DiajakIconSize.Inline)
                                         .clickable { viewModel.updateSearchQuery("") }
                                 )
                             }
                         },
-                        shape = DiajakRadius.Control,
+                        shape = DiajakRadius.Pill,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = DiajakSpacing.ScreenHorizontal)
@@ -442,17 +447,17 @@ fun HomeScreen(
                 when (val state = pagedFeedState) {
                     is UiState.Loading -> {
                         item(key = "feed_initial_loading") {
-                            Box(
+                            val shimmerProgress = rememberDiajakShimmerProgress()
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 64.dp),
-                                contentAlignment = Alignment.Center
+                                    .padding(horizontal = DiajakSpacing.ScreenHorizontal)
+                                    .testTag("home_feed_skeleton"),
+                                verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
                             ) {
-                                InstagramSpinner(
-                                    isSpinning = true,
-                                    size = 28.dp,
-                                    contentDescription = "Memuat aktivitas"
-                                )
+                                repeat(2) {
+                                    ActivityFeedCardSkeleton(shimmerProgress = shimmerProgress)
+                                }
                             }
                         }
                     }
@@ -495,43 +500,25 @@ fun HomeScreen(
                                 )
                             }
 
-                            // INSTAGRAM-STYLE BOTTOM LOADING SPINNER UNTUK BATCH BERIKUTNYA
-                            if (paged.hasMore || paged.isLoadingMore) {
-                                item(key = "feed_load_more_footer") {
-                                    LaunchedEffect(paged.items.size, paged.hasMore) {
-                                        if (paged.hasMore) {
-                                            viewModel.loadMoreFeedActivities()
-                                        }
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 22.dp)
-                                            .testTag("home_bottom_load_more_spinner"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        InstagramSpinner(
-                                            isSpinning = true,
-                                            size = 26.dp,
-                                            contentDescription = "Memuat aktivitas lainnya"
-                                        )
+                            // SATU SPINNER BAWAH PERMANEN: memuat batch berikutnya dan terus memantau konten baru real-time
+                            item(key = "feed_load_more_footer") {
+                                LaunchedEffect(paged.items.size, paged.totalCount, paged.hasMore) {
+                                    if (paged.hasMore) {
+                                        viewModel.loadMoreFeedActivities()
                                     }
                                 }
-                            } else {
-                                item(key = "feed_end_of_list") {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 8.dp, bottom = 12.dp)
-                                            .testTag("home_feed_end_indicator"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "Semua aktivitas telah ditampilkan",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                        )
-                                    }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 22.dp)
+                                        .testTag("home_bottom_load_more_spinner"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    InstagramSpinner(
+                                        isSpinning = true,
+                                        size = 26.dp,
+                                        contentDescription = "Memuat atau mendeteksi aktivitas baru"
+                                    )
                                 }
                             }
                         }

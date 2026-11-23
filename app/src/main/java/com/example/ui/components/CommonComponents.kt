@@ -56,8 +56,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
@@ -861,3 +863,92 @@ fun InstagramSpinner(
     }
 }
 
+/**
+ * Progres animasi shimmer terpusat (0f..1f) agar seluruh elemen skeleton di layar
+ * tersapu gelombang cahaya secara serempak dan halus bergaya Instagram.
+ */
+@Composable
+fun rememberDiajakShimmerProgress(): Float {
+    val transition = rememberInfiniteTransition(label = "diajak_shimmer_transition")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1280, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "diajak_shimmer_progress"
+    )
+    return progress
+}
+
+/**
+ * Modifier latar shimmer baku Diajak — 100% tanpa warna abu-abu baru:
+ * - Di atas latar putih (`nested = false`): memakai `DiajakSurfaceGray` (#E5E5EA) penuh (alpha 1.0f)
+ *   yang disapu gelombang pudar (alpha 0.35f) sehingga bertransisi mulus menuju latar putih (#FFFFFF).
+ * - Di dalam kartu abu-abu (`nested = true`): memakai `PureWhite` (#FFFFFF) semi-transparan
+ *   (0.70f <-> 0.38f) mengikuti aturan lapisan kontras resmi Diajak.
+ */
+fun Modifier.diajakShimmerSurface(
+    progress: Float,
+    baseColor: Color,
+    nested: Boolean = false
+): Modifier = drawBehind {
+    val width = size.width
+    val height = size.height
+    if (width <= 0f || height <= 0f) return@drawBehind
+
+    val bandWidth = (width * 0.72f).coerceAtLeast(120f)
+    val startX = -bandWidth + (width + bandWidth * 2f) * progress
+    val endX = startX + bandWidth
+
+    val colors = if (nested) {
+        listOf(
+            baseColor.copy(alpha = 0.70f),
+            baseColor.copy(alpha = 0.38f),
+            baseColor.copy(alpha = 0.70f)
+        )
+    } else {
+        listOf(
+            baseColor.copy(alpha = 1.0f),
+            baseColor.copy(alpha = 0.35f),
+            baseColor.copy(alpha = 1.0f)
+        )
+    }
+
+    drawRect(
+        brush = Brush.linearGradient(
+            colors = colors,
+            start = Offset(startX, 0f),
+            end = Offset(endX, height * 0.25f)
+        )
+    )
+}
+
+/**
+ * Blok rangka Skeleton / Shimmer standar Diajak yang secara otomatis memakai
+ * `#E5E5EA` (`surfaceContainer`) di atas layar putih atau `#FFFFFF` (`surfaceContainerHigh`)
+ * saat berada di dalam kartu skeleton.
+ */
+@Composable
+fun DiajakShimmerBlock(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    shape: Shape = DiajakRadius.Pill,
+    nested: Boolean = false
+) {
+    val baseColor = if (nested) {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    } else {
+        MaterialTheme.colorScheme.surfaceContainer
+    }
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .diajakShimmerSurface(
+                progress = progress,
+                baseColor = baseColor,
+                nested = nested
+            )
+    )
+}

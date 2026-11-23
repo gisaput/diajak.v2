@@ -28,7 +28,6 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.NotificationsNone
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -50,6 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,8 +61,11 @@ import com.example.data.UiState
 import com.example.ui.DiajakViewModel
 import com.example.ui.components.DiajakBackButton
 import com.example.ui.components.DiajakFlatTextField
+import com.example.ui.components.DiajakShimmerBlock
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.InitialAvatar
+import com.example.ui.components.diajakShimmerSurface
+import com.example.ui.components.rememberDiajakShimmerProgress
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
@@ -162,8 +166,15 @@ fun MessagesScreen(
         } else {
             when (val state = conversationsState) {
                 is UiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    val shimmerProgress = rememberDiajakShimmerProgress()
+                    LazyColumn(
+                        contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                        verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap),
+                        modifier = Modifier.testTag("messages_loading_skeleton")
+                    ) {
+                        items(5) {
+                            ConversationRowSkeleton(shimmerProgress = shimmerProgress)
+                        }
                     }
                 }
                 is UiState.Error -> {
@@ -284,6 +295,59 @@ fun ConversationRowCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+/**
+ * Skeleton / Shimmer Loading untuk [ConversationRowCard] yang berbagi ukuran avatar,
+ * radius kartu, dan padding dengan baris percakapan asli.
+ */
+@Composable
+private fun ConversationRowSkeleton(
+    shimmerProgress: Float,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(DiajakRadius.Card)
+            .diajakShimmerSurface(
+                progress = shimmerProgress,
+                baseColor = MaterialTheme.colorScheme.surfaceContainer,
+                nested = false
+            )
+            .padding(DiajakSpacing.CardPadding)
+            .semantics { contentDescription = "Memuat percakapan" },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DiajakShimmerBlock(
+            progress = shimmerProgress,
+            shape = CircleShape,
+            nested = true,
+            modifier = Modifier.size(DiajakComponentSize.ActionCircle)
+        )
+        Spacer(modifier = Modifier.width(DiajakSpacing.ItemGap))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            DiajakShimmerBlock(
+                progress = shimmerProgress,
+                shape = DiajakRadius.Pill,
+                nested = true,
+                modifier = Modifier
+                    .fillMaxWidth(0.54f)
+                    .height(14.dp)
+            )
+            DiajakShimmerBlock(
+                progress = shimmerProgress,
+                shape = DiajakRadius.Pill,
+                nested = true,
+                modifier = Modifier
+                    .fillMaxWidth(0.84f)
+                    .height(12.dp)
+            )
         }
     }
 }

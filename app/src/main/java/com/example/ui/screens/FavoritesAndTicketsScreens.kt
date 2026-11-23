@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -26,7 +25,6 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,10 +53,14 @@ import com.example.data.DiajakCatalog
 import com.example.data.UiState
 import com.example.ui.DiajakViewModel
 import com.example.ui.components.ActivityFeedCard
+import com.example.ui.components.ActivityFeedCardSkeleton
 import com.example.ui.components.DiajakFlatSecondaryButton
 import com.example.ui.components.DiajakPhoto
+import com.example.ui.components.DiajakShimmerBlock
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.TicketQrCanvas
+import com.example.ui.components.diajakShimmerSurface
+import com.example.ui.components.rememberDiajakShimmerProgress
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
@@ -100,8 +104,15 @@ fun FavoritesScreen(
 
         when (val state = activitiesState) {
             is UiState.Loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                val shimmerProgress = rememberDiajakShimmerProgress()
+                LazyColumn(
+                    contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                    verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap),
+                    modifier = Modifier.testTag("favorites_loading_skeleton")
+                ) {
+                    items(2) {
+                        ActivityFeedCardSkeleton(shimmerProgress = shimmerProgress)
+                    }
                 }
             }
             is UiState.Error -> {
@@ -177,8 +188,15 @@ fun TicketsScreen(
 
         when (val state = bookingsState) {
             is UiState.Loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                val shimmerProgress = rememberDiajakShimmerProgress()
+                LazyColumn(
+                    contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                    verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ListSpacing),
+                    modifier = Modifier.testTag("tickets_loading_skeleton")
+                ) {
+                    items(3) {
+                        TicketCardSkeleton(shimmerProgress = shimmerProgress)
+                    }
                 }
             }
             is UiState.Error -> {
@@ -199,8 +217,8 @@ fun TicketsScreen(
                     )
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                        verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ListSpacing)
                     ) {
                         items(state.data, key = { it.id }) { ticket ->
                             TicketCard(
@@ -313,6 +331,12 @@ fun TicketsScreen(
     }
 }
 
+private object TicketCardDefaults {
+    val ThumbnailSize = 72.dp
+    val ContentSpacing = 12.dp
+    val ListSpacing = 14.dp
+}
+
 @Composable
 private fun TicketCard(
     ticket: BookingTicket,
@@ -326,17 +350,17 @@ private fun TicketCard(
             .clickable(onClick = onClick)
             .padding(DiajakSpacing.CardPadding)
             .testTag("ticket_card_${ticket.id}"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ContentSpacing)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             DiajakPhoto(
                 photoKey = ticket.activityPhotoKey.ifBlank { "img_activity_running" },
                 contentDescription = ticket.activityTitle,
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(TicketCardDefaults.ThumbnailSize)
                     .clip(DiajakRadius.Small)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(TicketCardDefaults.ContentSpacing))
             Column(modifier = Modifier.weight(1f)) {
                 TicketStatusPill(status = ticket.status)
                 Spacer(modifier = Modifier.height(5.dp))
@@ -398,6 +422,106 @@ private fun TicketCard(
                 Spacer(modifier = Modifier.width(5.dp))
                 Text("Lihat QR", style = MaterialTheme.typography.labelMedium)
             }
+        }
+    }
+}
+
+/**
+ * Skeleton / Shimmer Loading untuk [TicketCard] yang berbagi konstanta ukuran,
+ * radius sudut, padding, dan proporsi elemen dengan kartu tiket asli.
+ */
+@Composable
+private fun TicketCardSkeleton(
+    shimmerProgress: Float,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(DiajakRadius.Card)
+            .diajakShimmerSurface(
+                progress = shimmerProgress,
+                baseColor = MaterialTheme.colorScheme.surfaceContainer,
+                nested = false
+            )
+            .padding(DiajakSpacing.CardPadding)
+            .semantics { contentDescription = "Memuat kartu tiket" },
+        verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ContentSpacing)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            DiajakShimmerBlock(
+                progress = shimmerProgress,
+                shape = DiajakRadius.Small,
+                nested = true,
+                modifier = Modifier.size(TicketCardDefaults.ThumbnailSize)
+            )
+            Spacer(modifier = Modifier.width(TicketCardDefaults.ContentSpacing))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .width(88.dp)
+                        .height(18.dp)
+                )
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .fillMaxWidth(0.88f)
+                        .height(15.dp)
+                )
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .fillMaxWidth(0.60f)
+                        .height(12.dp)
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .fillMaxWidth(0.62f)
+                        .height(11.dp)
+                )
+                DiajakShimmerBlock(
+                    progress = shimmerProgress,
+                    shape = DiajakRadius.Pill,
+                    nested = true,
+                    modifier = Modifier
+                        .fillMaxWidth(0.75f)
+                        .height(13.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(DiajakSpacing.ItemGap))
+            DiajakShimmerBlock(
+                progress = shimmerProgress,
+                shape = DiajakRadius.Small,
+                nested = true,
+                modifier = Modifier
+                    .width(96.dp)
+                    .height(34.dp)
+            )
         }
     }
 }
