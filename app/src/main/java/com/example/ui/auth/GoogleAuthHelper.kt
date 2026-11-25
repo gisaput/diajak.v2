@@ -9,6 +9,7 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.example.R
+import com.example.data.DevBypassSession
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -107,6 +108,9 @@ fun signOutUser(
     scope: CoroutineScope,
     onSignOutComplete: () -> Unit = {}
 ) {
+    if (DevBypassSession.isActive.value) {
+        DevBypassSession.deactivate()
+    }
     scope.launch {
         withContext(NonCancellable) {
             try {
@@ -115,6 +119,7 @@ fun signOutUser(
                 Log.w("Auth", "Failed to clear credential state: ${e.message}")
             } finally {
                 Firebase.auth.signOut()
+                DevBypassSession.deactivate()
                 onSignOutComplete()
             }
         }

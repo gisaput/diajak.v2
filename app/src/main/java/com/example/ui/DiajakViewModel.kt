@@ -11,7 +11,7 @@ import com.example.data.ChatMessage
 import com.example.data.CityOption
 import com.example.data.Conversation
 import com.example.data.DiajakCatalog
-import com.example.data.DiajakRepository
+import com.example.data.DiajakDataSource
 import com.example.data.FeedDynamicSignals
 import com.example.data.FeedRankingEngine
 import com.example.data.KycDocument
@@ -62,7 +62,7 @@ data class PagedFeedResult(
 )
 
 class DiajakViewModel(
-    private val repository: DiajakRepository,
+    private val repository: DiajakDataSource,
     private val locationService: LocationService,
     val currentUserId: String?
 ) : ViewModel() {

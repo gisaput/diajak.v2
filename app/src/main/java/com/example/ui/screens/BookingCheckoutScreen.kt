@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -25,16 +24,12 @@ import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,8 +49,8 @@ import com.example.data.BookingTicket
 import com.example.data.DiajakCatalog
 import com.example.data.PaymentMethodOption
 import com.example.ui.DiajakViewModel
-import com.example.ui.components.DiajakBackButton
 import com.example.ui.components.DiajakFlatSecondaryButton
+import com.example.ui.components.DiajakPageScaffold
 import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.TicketQrCanvas
 import com.example.ui.theme.DiajakComponentSize
@@ -65,7 +60,6 @@ import com.example.ui.theme.DiajakSpacing
 import com.example.ui.theme.VerifiedGreen
 import com.example.ui.theme.VerifiedGreenSurface
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingCheckoutScreen(
     activity: ActivityItem,
@@ -83,27 +77,12 @@ fun BookingCheckoutScreen(
     val totalAmount = activity.priceIdr * ticketCount
     val isFree = totalAmount == 0L
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (issuedTicket == null) "Konfirmasi Booking" else "E-Tiket Diterbitkan",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("checkout_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
+    DiajakPageScaffold(
+        title = if (issuedTicket == null) "Konfirmasi Booking" else "E-Tiket Diterbitkan",
+        onBack = onBack,
+        backButtonTestTag = "checkout_back_button",
+        titleTestTag = "checkout_header_title",
+        applyNavigationBarBottomPadding = issuedTicket != null,
         bottomBar = {
             if (issuedTicket == null) {
                 Surface(color = MaterialTheme.colorScheme.surface) {
@@ -166,23 +145,20 @@ fun BookingCheckoutScreen(
                 }
             }
         }
-    ) { innerPadding ->
+    ) { contentPadding ->
         val ticket = issuedTicket
         if (ticket != null) {
             IssuedTicketSuccessView(
                 ticket = ticket,
                 onGoToTickets = onGoToTickets,
                 onGoToMessages = onGoToMessages,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
+                contentPadding = contentPadding,
+                modifier = Modifier.fillMaxSize()
             )
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = contentPadding,
                 verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
             ) {
                 // Activity Summary Card
@@ -425,11 +401,12 @@ private fun IssuedTicketSuccessView(
     ticket: BookingTicket,
     onGoToTickets: () -> Unit,
     onGoToMessages: () -> Unit,
+    contentPadding: PaddingValues,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(20.dp),
+        contentPadding = contentPadding,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

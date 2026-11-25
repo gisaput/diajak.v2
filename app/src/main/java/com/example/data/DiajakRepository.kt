@@ -21,7 +21,7 @@ import kotlin.random.Random
 class DiajakRepository(
     private val db: FirebaseFirestore,
     private val auth: FirebaseAuth = Firebase.auth
-) {
+) : DiajakDataSource {
     constructor(context: Context) : this(
         FirebaseFirestore.getInstance(
             context.applicationContext.getString(R.string.firestore_database_id)
@@ -47,7 +47,7 @@ class DiajakRepository(
 
     // --- REALTIME OBSERVATION STREAMS ---
 
-    fun observeUserProfile(uid: String): Flow<UserProfile?> =
+    override fun observeUserProfile(uid: String): Flow<UserProfile?> =
         db.collection("users").document(uid)
             .snapshots()
             .map { snapshot ->
@@ -59,7 +59,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.GET, "users/$uid")
 
-    fun observeKycDocument(uid: String): Flow<KycDocument?> =
+    override fun observeKycDocument(uid: String): Flow<KycDocument?> =
         db.collection("users").document(uid).collection("kycDocuments").document("ktp")
             .snapshots()
             .map { snapshot ->
@@ -71,7 +71,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.GET, "users/$uid/kycDocuments/ktp")
 
-    fun observePublishedActivities(uid: String?): Flow<List<ActivityItem>> =
+    override fun observePublishedActivities(uid: String?): Flow<List<ActivityItem>> =
         db.collection("activities")
             .whereEqualTo("status", "PUBLISHED")
             .snapshots()
@@ -80,7 +80,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "activities")
 
-    fun observeOrganizerActivities(uid: String): Flow<List<ActivityItem>> =
+    override fun observeOrganizerActivities(uid: String): Flow<List<ActivityItem>> =
         db.collection("activities")
             .whereEqualTo("organizerId", uid)
             .snapshots()
@@ -90,7 +90,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "activities")
 
-    fun observeFavorites(uid: String): Flow<Set<String>> =
+    override fun observeFavorites(uid: String): Flow<Set<String>> =
         db.collection("users").document(uid).collection("favorites")
             .snapshots()
             .map { snapshot ->
@@ -100,7 +100,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "users/$uid/favorites")
 
-    fun observeNotifications(uid: String): Flow<List<AppNotification>> =
+    override fun observeNotifications(uid: String): Flow<List<AppNotification>> =
         db.collection("users").document(uid).collection("notifications")
             .snapshots()
             .map { snapshot ->
@@ -109,7 +109,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "users/$uid/notifications")
 
-    fun observeWalletTransactions(uid: String): Flow<List<WalletTransaction>> =
+    override fun observeWalletTransactions(uid: String): Flow<List<WalletTransaction>> =
         db.collection("users").document(uid).collection("walletTransactions")
             .snapshots()
             .map { snapshot ->
@@ -118,7 +118,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "users/$uid/walletTransactions")
 
-    fun observeParticipantBookings(uid: String): Flow<List<BookingTicket>> =
+    override fun observeParticipantBookings(uid: String): Flow<List<BookingTicket>> =
         db.collection("bookings")
             .whereEqualTo("userId", uid)
             .snapshots()
@@ -128,7 +128,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "bookings")
 
-    fun observeOrganizerBookings(uid: String): Flow<List<BookingTicket>> =
+    override fun observeOrganizerBookings(uid: String): Flow<List<BookingTicket>> =
         db.collection("bookings")
             .whereEqualTo("organizerId", uid)
             .snapshots()
@@ -138,7 +138,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "bookings")
 
-    fun observeConversations(uid: String): Flow<List<Conversation>> =
+    override fun observeConversations(uid: String): Flow<List<Conversation>> =
         db.collection("conversations")
             .whereArrayContains("participantUids", uid)
             .snapshots()
@@ -148,7 +148,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "conversations")
 
-    fun observeMessages(conversationId: String, uid: String): Flow<List<ChatMessage>> =
+    override fun observeMessages(conversationId: String, uid: String): Flow<List<ChatMessage>> =
         db.collection("conversations").document(conversationId).collection("messages")
             .whereArrayContains("participantUids", uid)
             .snapshots()
@@ -158,7 +158,7 @@ class DiajakRepository(
             }
             .logFirestoreErrors(uid, OperationType.LIST, "conversations/$conversationId/messages")
 
-    fun observeActivityReviews(activityId: String, uid: String?): Flow<List<ActivityReview>> =
+    override fun observeActivityReviews(activityId: String, uid: String?): Flow<List<ActivityReview>> =
         db.collection("activities").document(activityId).collection("reviews")
             .whereEqualTo("activityId", activityId)
             .snapshots()
@@ -170,7 +170,7 @@ class DiajakRepository(
 
     // --- BOOTSTRAP & PROFILE ---
 
-    suspend fun ensureUserProfileAndSeedCatalog(user: FirebaseUser): Result<Unit> {
+    override suspend fun ensureUserProfileAndSeedCatalog(user: FirebaseUser): Result<Unit> {
         val uid = user.uid
         return try {
             val userRef = db.collection("users").document(uid)
@@ -226,7 +226,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun updateUserProfile(
+    override suspend fun updateUserProfile(
         displayName: String,
         bio: String,
         city: String,
@@ -257,7 +257,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun updatePreferredCity(city: String): Result<Unit> {
+    override suspend fun updatePreferredCity(city: String): Result<Unit> {
         val uid = try { requireUserId() } catch (e: Exception) { return Result.failure(e) }
         val path = "users/$uid"
         return try {
@@ -278,7 +278,7 @@ class DiajakRepository(
 
     // --- ORGANIZER KYC VERIFICATION ---
 
-    suspend fun submitKycDocument(
+    override suspend fun submitKycDocument(
         fullName: String,
         nikNumber: String,
         documentPhotoUri: String
@@ -335,7 +335,7 @@ class DiajakRepository(
 
     // --- FAVORITES ---
 
-    suspend fun toggleFavorite(activity: ActivityItem, currentlyFavorited: Boolean): Result<Unit> {
+    override suspend fun toggleFavorite(activity: ActivityItem, currentlyFavorited: Boolean): Result<Unit> {
         val uid = try { requireUserId() } catch (e: Exception) { return Result.failure(e) }
         val favPath = "users/$uid/favorites/${activity.id}"
         return try {
@@ -377,7 +377,7 @@ class DiajakRepository(
 
     // --- ORGANIZER ACTIVITIES CRUD ---
 
-    suspend fun saveActivity(
+    override suspend fun saveActivity(
         existingId: String?,
         organizerProfile: UserProfile,
         title: String,
@@ -480,7 +480,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun updateActivityStatus(
+    override suspend fun updateActivityStatus(
         activityId: String,
         newStatus: String,
         organizerVerified: Boolean
@@ -508,7 +508,7 @@ class DiajakRepository(
 
     // --- BOOKING & CHECKOUT ---
 
-    suspend fun completeBooking(
+    override suspend fun completeBooking(
         activity: ActivityItem,
         userProfile: UserProfile,
         ticketCount: Int,
@@ -620,7 +620,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun checkInBooking(bookingId: String): Result<Unit> {
+    override suspend fun checkInBooking(bookingId: String): Result<Unit> {
         try { requireUserId() } catch (e: Exception) { return Result.failure(e) }
         return try {
             db.collection("bookings").document(bookingId).update(
@@ -638,7 +638,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun cancelBooking(bookingId: String): Result<Unit> {
+    override suspend fun cancelBooking(bookingId: String): Result<Unit> {
         try { requireUserId() } catch (e: Exception) { return Result.failure(e) }
         return try {
             db.collection("bookings").document(bookingId).update(
@@ -768,7 +768,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun openOrCreateDirectChat(
+    override suspend fun openOrCreateDirectChat(
         userName: String,
         activity: ActivityItem
     ): Result<String> {
@@ -810,7 +810,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun sendMessage(
+    override suspend fun sendMessage(
         conversation: Conversation,
         senderName: String,
         text: String
@@ -862,7 +862,7 @@ class DiajakRepository(
 
     // --- REVIEWS & ORGANIZER REPLIES ---
 
-    suspend fun addReview(
+    override suspend fun addReview(
         activity: ActivityItem,
         authorName: String,
         rating: Int,
@@ -910,7 +910,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun replyToReview(
+    override suspend fun replyToReview(
         activityId: String,
         reviewId: String,
         replyText: String
@@ -939,7 +939,7 @@ class DiajakRepository(
 
     // --- WALLET & NOTIFICATIONS ---
 
-    suspend fun requestWithdrawal(
+    override suspend fun requestWithdrawal(
         amount: Long,
         destinationLabel: String,
         availableBalance: Long
@@ -981,7 +981,7 @@ class DiajakRepository(
         }
     }
 
-    suspend fun markNotificationRead(notifId: String): Result<Unit> {
+    override suspend fun markNotificationRead(notifId: String): Result<Unit> {
         val uid = try { requireUserId() } catch (e: Exception) { return Result.failure(e) }
         val path = "users/$uid/notifications/$notifId"
         return try {

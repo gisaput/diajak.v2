@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,6 +54,7 @@ import com.example.ui.DiajakViewModel
 import com.example.ui.components.ActivityFeedCard
 import com.example.ui.components.ActivityFeedCardSkeleton
 import com.example.ui.components.DiajakFlatSecondaryButton
+import com.example.ui.components.DiajakPageScaffold
 import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.DiajakShimmerBlock
 import com.example.ui.components.EmptyStatePanel
@@ -82,33 +82,26 @@ fun FavoritesScreen(
     val activitiesState by viewModel.publishedActivitiesState.collectAsStateWithLifecycle()
     val favoriteIds by viewModel.favoriteIdsState.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
-            Text(
-                text = "Favorit",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Aktivitas yang kamu sukai tersimpan rapi di sini.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    val isFavoritesEmpty = (activitiesState as? UiState.Success)?.data?.none {
+        favoriteIds.contains(it.id)
+    } == true
 
+    DiajakPageScaffold(
+        title = "Favorit",
+        titleTestTag = "favorites_header_title",
+        applyNavigationBarBottomPadding = false,
+        headerResetKey = isFavoritesEmpty,
+        modifier = modifier
+    ) { contentPadding ->
         when (val state = activitiesState) {
             is UiState.Loading -> {
                 val shimmerProgress = rememberDiajakShimmerProgress()
                 LazyColumn(
-                    contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
-                    verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap),
-                    modifier = Modifier.testTag("favorites_loading_skeleton")
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("favorites_loading_skeleton"),
+                    contentPadding = contentPadding,
+                    verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
                 ) {
                     items(2) {
                         ActivityFeedCardSkeleton(shimmerProgress = shimmerProgress)
@@ -119,7 +112,8 @@ fun FavoritesScreen(
                 EmptyStatePanel(
                     icon = Icons.Rounded.FavoriteBorder,
                     title = "Gagal memuat favorit",
-                    subtitle = state.message
+                    subtitle = state.message,
+                    outerPadding = contentPadding
                 )
             }
             is UiState.Success -> {
@@ -132,12 +126,14 @@ fun FavoritesScreen(
                         title = "Belum ada aktivitas favorit",
                         subtitle = "Ketuk ikon hati pada kartu aktivitas di Beranda agar mudah kamu temukan kembali.",
                         actionLabel = "Jelajahi Beranda",
-                        onAction = onExploreClick
+                        onAction = onExploreClick,
+                        outerPadding = contentPadding
                     )
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = contentPadding,
+                        verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
                     ) {
                         items(favActivities, key = { it.id }) { activity ->
                             ActivityFeedCard(
@@ -166,33 +162,24 @@ fun TicketsScreen(
     val bookingsState by viewModel.participantBookingsState.collectAsStateWithLifecycle()
     var selectedTicket by remember { mutableStateOf<BookingTicket?>(null) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
-            Text(
-                text = "Tiket",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Bukti booking dan kode QR kehadiran aktivitasmu.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    val isTicketsEmpty = (bookingsState as? UiState.Success)?.data?.isEmpty() == true
 
+    DiajakPageScaffold(
+        title = "Tiket",
+        titleTestTag = "tickets_header_title",
+        applyNavigationBarBottomPadding = false,
+        headerResetKey = isTicketsEmpty,
+        modifier = modifier
+    ) { contentPadding ->
         when (val state = bookingsState) {
             is UiState.Loading -> {
                 val shimmerProgress = rememberDiajakShimmerProgress()
                 LazyColumn(
-                    contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
-                    verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ListSpacing),
-                    modifier = Modifier.testTag("tickets_loading_skeleton")
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("tickets_loading_skeleton"),
+                    contentPadding = contentPadding,
+                    verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ListSpacing)
                 ) {
                     items(3) {
                         TicketCardSkeleton(shimmerProgress = shimmerProgress)
@@ -203,7 +190,8 @@ fun TicketsScreen(
                 EmptyStatePanel(
                     icon = Icons.Rounded.ConfirmationNumber,
                     title = "Gagal memuat tiket",
-                    subtitle = state.message
+                    subtitle = state.message,
+                    outerPadding = contentPadding
                 )
             }
             is UiState.Success -> {
@@ -213,11 +201,13 @@ fun TicketsScreen(
                         title = "Belum ada E-Tiket aktif",
                         subtitle = "Pilih aktivitas di Beranda lalu tekan Ikuti untuk memesan tiket dan bergabung ke grup peserta.",
                         actionLabel = "Cari Aktivitas",
-                        onAction = onExploreClick
+                        onAction = onExploreClick,
+                        outerPadding = contentPadding
                     )
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = contentPadding,
                         verticalArrangement = Arrangement.spacedBy(TicketCardDefaults.ListSpacing)
                     ) {
                         items(state.data, key = { it.id }) { ticket ->

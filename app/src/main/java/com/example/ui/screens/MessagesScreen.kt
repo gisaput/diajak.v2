@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,15 +27,11 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.NotificationsNone
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,14 +54,16 @@ import com.example.data.AppNotification
 import com.example.data.Conversation
 import com.example.data.UiState
 import com.example.ui.DiajakViewModel
-import com.example.ui.components.DiajakBackButton
 import com.example.ui.components.DiajakFlatTextField
+import com.example.ui.components.DiajakPageScaffold
 import com.example.ui.components.DiajakShimmerBlock
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.InitialAvatar
 import com.example.ui.components.diajakShimmerSurface
+import com.example.ui.components.keepKeyboardOpenOnTouch
 import com.example.ui.components.rememberDiajakShimmerProgress
 import com.example.ui.theme.DiajakComponentSize
+import com.example.ui.theme.DiajakHeaderSpec
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
 import com.example.ui.theme.DiajakSpacing
@@ -85,72 +82,76 @@ fun MessagesScreen(
 
     val tabs = listOf("Penyelenggara", "Grup Aktivitas", "Notifikasi")
 
-    Column(
+    DiajakPageScaffold(
+        title = "Pesan",
+        titleTestTag = "messages_header_title",
+        applyNavigationBarBottomPadding = false,
+        headerResetKey = selectedTab,
         modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-    ) {
-        Column(modifier = Modifier.padding(horizontal = DiajakSpacing.ScreenHorizontal, vertical = 14.dp)) {
-            Text(
-                text = "Pesan",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Chat penyelenggara, grup peserta aktivitas, dan notifikasi.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(14.dp))
+    ) { _ ->
+        Column(modifier = Modifier.fillMaxSize()) {
 
-            // Flat Monochrome segmented tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(DiajakRadius.Control)
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                tabs.forEachIndexed { idx, label ->
-                    val selected = selectedTab == idx
-                    Surface(
-                        onClick = { selectedTab = idx },
-                        shape = DiajakRadius.Small,
-                        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("messages_tab_$idx")
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp)
-                        )
-                    }
+        // Flat Monochrome segmented tabs
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = DiajakSpacing.ScreenHorizontal,
+                    end = DiajakSpacing.ScreenHorizontal,
+                    top = DiajakHeaderSpec.ContentTopGap,
+                    bottom = DiajakSpacing.SectionGap
+                )
+                .clip(DiajakRadius.Control)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            tabs.forEachIndexed { idx, label ->
+                val selected = selectedTab == idx
+                Surface(
+                    onClick = { selectedTab = idx },
+                    shape = DiajakRadius.Small,
+                    color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("messages_tab_$idx")
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp)
+                    )
                 }
             }
         }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         if (selectedTab == 2) {
             if (notifications.isEmpty()) {
                 EmptyStatePanel(
                     icon = Icons.Rounded.NotificationsNone,
                     title = "Belum ada notifikasi",
-                    subtitle = "Informasi booking tiket, verifikasi KTP, dan pesan terbaru akan muncul di sini."
+                    subtitle = "Informasi booking tiket, verifikasi KTP, dan pesan terbaru akan muncul di sini.",
+                    outerPadding = PaddingValues(
+                        start = DiajakSpacing.ScreenHorizontal,
+                        end = DiajakSpacing.ScreenHorizontal,
+                        top = 0.dp,
+                        bottom = DiajakSpacing.ScreenHorizontal
+                    )
                 )
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                    contentPadding = PaddingValues(
+                        start = DiajakSpacing.ScreenHorizontal,
+                        end = DiajakSpacing.ScreenHorizontal,
+                        top = 0.dp,
+                        bottom = 24.dp
+                    ),
                     verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
                 ) {
                     items(notifications, key = { it.id }) { notif ->
@@ -168,7 +169,12 @@ fun MessagesScreen(
                 is UiState.Loading -> {
                     val shimmerProgress = rememberDiajakShimmerProgress()
                     LazyColumn(
-                        contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                        contentPadding = PaddingValues(
+                            start = DiajakSpacing.ScreenHorizontal,
+                            end = DiajakSpacing.ScreenHorizontal,
+                            top = 0.dp,
+                            bottom = 24.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap),
                         modifier = Modifier.testTag("messages_loading_skeleton")
                     ) {
@@ -181,7 +187,13 @@ fun MessagesScreen(
                     EmptyStatePanel(
                         icon = Icons.AutoMirrored.Rounded.Chat,
                         title = "Gagal memuat percakapan",
-                        subtitle = state.message
+                        subtitle = state.message,
+                        outerPadding = PaddingValues(
+                            start = DiajakSpacing.ScreenHorizontal,
+                            end = DiajakSpacing.ScreenHorizontal,
+                            top = 0.dp,
+                            bottom = DiajakSpacing.ScreenHorizontal
+                        )
                     )
                 }
                 is UiState.Success -> {
@@ -196,11 +208,22 @@ fun MessagesScreen(
                             subtitle = if (selectedTab == 0)
                                 "Ketuk avatar penyelenggara di halaman detail aktivitas untuk mulai bertanya langsung."
                             else
-                                "Pesan tiket pada suatu aktivitas untuk otomatis bergabung dengan grup chat pesertanya."
+                                "Pesan tiket pada suatu aktivitas untuk otomatis bergabung dengan grup chat pesertanya.",
+                            outerPadding = PaddingValues(
+                                start = DiajakSpacing.ScreenHorizontal,
+                                end = DiajakSpacing.ScreenHorizontal,
+                                top = 0.dp,
+                                bottom = DiajakSpacing.ScreenHorizontal
+                            )
                         )
                     } else {
                         LazyColumn(
-                            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+                            contentPadding = PaddingValues(
+                                start = DiajakSpacing.ScreenHorizontal,
+                                end = DiajakSpacing.ScreenHorizontal,
+                                top = 0.dp,
+                                bottom = 24.dp
+                            ),
                             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
                         ) {
                             items(filtered, key = { it.id }) { conv ->
@@ -213,6 +236,7 @@ fun MessagesScreen(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -396,7 +420,6 @@ private fun NotificationRowCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatRoomScreen(
     conversation: Conversation,
@@ -414,39 +437,14 @@ fun ChatRoomScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = conversation.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (conversation.type == "GROUP")
-                                "Grup Aktivitas • ${conversation.participantUids.size} anggota"
-                            else
-                                conversation.activityTitle.ifBlank { "Chat Penyelenggara" },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("chat_room_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        },
+    DiajakPageScaffold(
+        title = conversation.title,
+        onBack = onBack,
+        backButtonTestTag = "chat_room_back_button",
+        titleTestTag = "chat_room_header_title",
+        applyNavigationBarBottomPadding = false,
+        extraBottomPadding = DiajakSpacing.CardPadding,
+        pinnedHeader = true,
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(
@@ -487,6 +485,7 @@ fun ChatRoomScreen(
                             shadowElevation = 0.dp,
                             modifier = Modifier
                                 .size(DiajakComponentSize.ActionCircle)
+                                .keepKeyboardOpenOnTouch()
                                 .testTag("chat_send_button")
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -502,13 +501,11 @@ fun ChatRoomScreen(
                 }
             }
         }
-    ) { innerPadding ->
+    ) { contentPadding ->
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.CardPadding),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ChipGap)
         ) {
             if (messages.isEmpty()) {
@@ -516,7 +513,8 @@ fun ChatRoomScreen(
                     EmptyStatePanel(
                         icon = Icons.AutoMirrored.Rounded.Chat,
                         title = "Mulai percakapan",
-                        subtitle = "Tanyakan jadwal, titik kumpul, atau perlengkapan yang perlu dibawa."
+                        subtitle = "Tanyakan jadwal, titik kumpul, atau perlengkapan yang perlu dibawa.",
+                        outerPadding = PaddingValues(0.dp)
                     )
                 }
             }

@@ -31,6 +31,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,10 +57,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.R
 import com.example.data.ActivityItem
+import com.example.data.DevBypassSession
 import com.example.data.DiajakRepository
 import com.example.data.LocationService
 import com.example.data.UiState
 import com.example.ui.auth.AuthScreen
+import com.example.ui.components.KeyboardDismissController
+import com.example.ui.components.LocalKeyboardDismissController
+import com.example.ui.components.dismissKeyboardOnOutsideTouch
 import com.example.ui.screens.ActivityDetailScreen
 import com.example.ui.screens.BookingCheckoutScreen
 import com.example.ui.screens.ChatRoomScreen
@@ -131,21 +136,44 @@ internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
 @Composable
 fun DiajakAppRoot(auth: FirebaseAuth = Firebase.auth) {
     val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
-    DiajakMainShell(currentUserId = currentUser?.uid)
+    val isDevBypassActive by DevBypassSession.isActive.collectAsStateWithLifecycle()
+    val useDevBypass = DevBypassSession.ENABLE_DEV_LOGIN_BYPASS && currentUser == null && isDevBypassActive
+    val effectiveUserId = currentUser?.uid ?: if (useDevBypass) DevBypassSession.DEV_USER_ID else null
+    val keyboardDismissController = remember { KeyboardDismissController() }
+    CompositionLocalProvider(LocalKeyboardDismissController provides keyboardDismissController) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .dismissKeyboardOnOutsideTouch()
+        ) {
+            DiajakMainShell(
+                currentUserId = effectiveUserId,
+                isDevBypass = useDevBypass
+            )
+        }
+    }
 }
 
 @Composable
-private fun DiajakMainShell(currentUserId: String?) {
+private fun DiajakMainShell(
+    currentUserId: String?,
+    isDevBypass: Boolean
+) {
     val isSignedIn = !currentUserId.isNullOrBlank()
     val viewModel: DiajakViewModel = viewModel(
         key = currentUserId ?: "guest",
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY]) { "APPLICATION_KEY missing" }
-                val databaseId = app.getString(R.string.firestore_database_id)
-                val db = FirebaseFirestore.getInstance(databaseId)
+                val dataSource = if (isDevBypass) {
+                    DevBypassSession.dataSource()
+                } else {
+                    val databaseId = app.getString(R.string.firestore_database_id)
+                    val db = FirebaseFirestore.getInstance(databaseId)
+                    DiajakRepository(db)
+                }
                 DiajakViewModel(
-                    repository = DiajakRepository(db),
+                    repository = dataSource,
                     locationService = LocationService(app),
                     currentUserId = currentUserId
                 )
@@ -331,16 +359,6 @@ private fun DiajakMainShell(currentUserId: String?) {
                     onActivityClick = { activity ->
                         navController.navigate("detail/${activity.id}")
                     },
-                    onOpenProfile = {
-                        if (isSignedIn) {
-                            navigateToTopTab(ROUTE_PROFILE)
-                        } else {
-                            requestAuth(
-                                "Masuk dengan Google untuk mengakses Profil & Portal Penyelenggara.",
-                                PendingAuthAction.OpenTab(ROUTE_PROFILE)
-                            )
-                        }
-                    },
                     onOpenNotifications = {
                         if (isSignedIn) {
                             messagesInitialTab = 2
@@ -358,12 +376,19 @@ private fun DiajakMainShell(currentUserId: String?) {
 
             composable(ROUTE_LOGIN) {
                 AuthScreen(
-                    onAuthSuccess = {},
+                    onAuthSuccess = {
+                        DevBypassSession.deactivate()
+                    },
                     reasonMessage = authPromptReason,
                     onDismiss = {
                         pendingAuthAction = null
                         authPromptReason = null
                         navController.popBackStack()
+                    },
+                    onDevBypassLogin = if (DevBypassSession.ENABLE_DEV_LOGIN_BYPASS) {
+                        { DevBypassSession.activate() }
+                    } else {
+                        null
                     }
                 )
             }

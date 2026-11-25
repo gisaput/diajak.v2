@@ -154,7 +154,7 @@ fun ActivityFeedCard(
                 shape = CircleShape,
                 color = DiajakPhotoOverlay.ChipSurface.copy(alpha = 0.92f),
                 modifier = Modifier
-                    .size(DiajakComponentSize.IconCircle)
+                    .size(DiajakComponentSize.ActionCircle)
                     .testTag("favorite_button_${activity.id}")
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -236,7 +236,7 @@ fun JoinedAvatarsBadge(
 /**
  * Skeleton / Shimmer Loading untuk [ActivityFeedCard] (dipakai di Beranda & Favorit).
  * Berbagi seluruh konstanta tinggi, radius sudut, padding, dan proporsi elemen dengan kartu asli,
- * menggunakan warna tunggal #E5E5EA (`surfaceContainer`) + sapuan pudar ala Instagram.
+ * menggunakan warna tunggal #F2F2F2 (`surfaceContainer`) + sapuan pudar ala Instagram.
  */
 @Composable
 fun ActivityFeedCardSkeleton(
@@ -302,7 +302,7 @@ fun ActivityFeedCardSkeleton(
                 progress = shimmerProgress,
                 shape = CircleShape,
                 nested = true,
-                modifier = Modifier.size(DiajakComponentSize.IconCircle)
+                modifier = Modifier.size(DiajakComponentSize.ActionCircle)
             )
         }
 

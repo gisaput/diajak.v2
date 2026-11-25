@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import com.example.R
+import com.example.data.DevBypassSession
 import com.example.ui.components.DiajakFlatSecondaryButton
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
@@ -58,7 +60,8 @@ import com.example.ui.theme.DiajakSpacing
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
     reasonMessage: String? = null,
-    onDismiss: (() -> Unit)? = null
+    onDismiss: (() -> Unit)? = null,
+    onDevBypassLogin: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -232,6 +235,38 @@ fun AuthScreen(
                             modifier = Modifier.padding(12.dp)
                         )
                     }
+                }
+
+                if (DevBypassSession.ENABLE_DEV_LOGIN_BYPASS && onDevBypassLogin != null) {
+                    Button(
+                        onClick = {
+                            errorMessage = null
+                            onDevBypassLogin()
+                        },
+                        enabled = !isLoading,
+                        shape = DiajakRadius.Control,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(DiajakComponentSize.PrimaryButtonHeight)
+                            .testTag("dev_bypass_login_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(DiajakIconSize.Inline)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Bypass Login (Dev Sementara)",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 Button(

@@ -3,13 +3,13 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * PEDOMAN RESMI DESAIN DIAJAK (Brand Coral #FF5A36 + Single Surface Gray #E5E5EA)
+ * PEDOMAN RESMI DESAIN DIAJAK (Brand Coral #FF5A36 + Single Surface Gray #F2F2F2)
  * -------------------------------------------------------------------------------
  * 1. Background Layar & Sheet : PureWhite (#FFFFFF)
- * 2. Satu-Satunya Abu-Abu Permukaan : DiajakSurfaceGray (#E5E5EA) — dipakai untuk
+ * 2. Satu-Satunya Abu-Abu Permukaan : DiajakSurfaceGray (#F2F2F2) — dipakai untuk
  *    SEMUA kartu, kontainer, kolom pencarian, text field, chip tidak aktif,
  *    tombol sekunder, pembungkus ikon di atas putih, segmented control track, & divider.
- * 3. Elemen di Dalam Kartu (#E5E5EA) : PureWhite (#FFFFFF) via `surfaceContainerHigh`
+ * 3. Elemen di Dalam Kartu (#F2F2F2) : PureWhite (#FFFFFF) via `surfaceContainerHigh`
  *    untuk pembungkus ikon bulat/tombol sekunder di dalam kartu abu-abu (mis. "Lihat QR",
  *    ikon Empty State, tombol Chat penyelenggara).
  * 4. Warna Brand / Elemen Aktif / CTA Utama : DiajakBrandOrange (#FF5A36) dengan teks PureWhite (#FFFFFF).
@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
  *    serta emoji kategori berwarna asli.
  */
 val PureWhite = Color(0xFFFFFFFF)
-val DiajakSurfaceGray = Color(0xFFE5E5EA)
+val DiajakSurfaceGray = Color(0xFFF2F2F2)
 
 val DiajakBrandOrange = Color(0xFFFF5A36)
 val JetBlack = Color(0xFF111111)

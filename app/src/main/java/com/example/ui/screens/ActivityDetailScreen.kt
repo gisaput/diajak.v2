@@ -71,7 +71,9 @@ import com.example.ui.components.DiajakFlatTextField
 import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.InitialAvatar
 import com.example.ui.components.RatingStars
+import com.example.ui.components.dismissKeyboardOnOutsideTouch
 import com.example.ui.theme.DiajakComponentSize
+import com.example.ui.theme.DiajakHeaderSpec
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakPhotoOverlay
 import com.example.ui.theme.DiajakRadius
@@ -201,12 +203,18 @@ fun ActivityDetailScreen(
                             )
                     )
 
-                    // Top bar controls (Back left, Heart right)
+                    // Top bar controls (Back left, Heart right) — 100% identik posisi & diameter 48.dp dengan Beranda & DiajakPageHeader
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .padding(
+                                start = DiajakSpacing.ScreenHorizontal,
+                                end = DiajakSpacing.ScreenHorizontal,
+                                top = DiajakHeaderSpec.PaddingTop,
+                                bottom = DiajakHeaderSpec.PaddingBottom
+                            )
+                            .height(DiajakHeaderSpec.ContentHeight)
                             .align(Alignment.TopCenter),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -216,7 +224,7 @@ fun ActivityDetailScreen(
                             shape = CircleShape,
                             color = DiajakPhotoOverlay.ChipSurface.copy(alpha = 0.94f),
                             modifier = Modifier
-                                .size(DiajakComponentSize.IconCircle)
+                                .size(DiajakHeaderSpec.ButtonSize)
                                 .testTag("detail_back_button")
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -235,7 +243,7 @@ fun ActivityDetailScreen(
                                 shape = CircleShape,
                                 color = DiajakPhotoOverlay.ChipSurface.copy(alpha = 0.94f),
                                 modifier = Modifier
-                                    .size(DiajakComponentSize.IconCircle)
+                                    .size(DiajakHeaderSpec.ButtonSize)
                                     .testTag("detail_favorite_button")
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -825,6 +833,7 @@ private fun WriteReviewDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.dismissKeyboardOnOutsideTouch(),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         title = {

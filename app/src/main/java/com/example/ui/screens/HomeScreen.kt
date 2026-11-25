@@ -3,16 +3,26 @@ package com.example.ui.screens
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,9 +34,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.GridView
@@ -41,6 +51,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,14 +59,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,26 +84,25 @@ import com.example.ui.DiajakViewModel
 import com.example.ui.components.ActivityFeedCard
 import com.example.ui.components.ActivityFeedCardSkeleton
 import com.example.ui.components.DiajakFlatTextField
-import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.InstagramSpinner
 import com.example.ui.components.NicheChipItem
 import com.example.ui.components.NichePickerBottomSheet
 import com.example.ui.components.rememberDiajakShimmerProgress
-import com.example.ui.theme.DiajakComponentSize
+import com.example.ui.theme.DiajakHeaderSpec
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
 import com.example.ui.theme.DiajakSpacing
 import com.example.ui.theme.HeartRed
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: DiajakViewModel,
     onActivityClick: (ActivityItem) -> Unit,
-    onOpenProfile: () -> Unit,
     onOpenNotifications: () -> Unit,
     onToggleFavorite: (ActivityItem) -> Unit,
     modifier: Modifier = Modifier
@@ -101,6 +117,9 @@ fun HomeScreen(
     var showNicheSheet by remember { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
     val listState = rememberLazyListState()
+    val decaySpec = rememberSplineBasedDecay<Float>()
+    val greetingHeightHolder = remember { FloatArray(1) }
+    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -120,6 +139,28 @@ fun HomeScreen(
         }
     }
 
+    // Restore greeting automatically if filtered/empty feed cannot scroll
+    LaunchedEffect(
+        pagedFeedState,
+        listState.canScrollForward,
+        listState.canScrollBackward,
+        listState.isScrollInProgress
+    ) {
+        if (!listState.isScrollInProgress &&
+            !listState.canScrollForward &&
+            listState.firstVisibleItemIndex == 0 &&
+            listState.firstVisibleItemScrollOffset == 0 &&
+            headerOffsetPx < 0f
+        ) {
+            animate(
+                initialValue = headerOffsetPx,
+                targetValue = 0f
+            ) { value, _ ->
+                headerOffsetPx = value
+            }
+        }
+    }
+
     val profileData = (profileState as? UiState.Success)?.data
     val displayName = remember(viewModel.isSignedIn, profileData) {
         if (!viewModel.isSignedIn) {
@@ -136,26 +177,6 @@ fun HomeScreen(
             displayName.trim().substringBefore(" ").ifBlank { "Sobat" }
         }
     }
-    val avatarInitials = remember(displayName) {
-        displayName.trim().split(" ")
-            .filter { it.isNotBlank() }
-            .take(2)
-            .joinToString("") { it.first().uppercase() }
-            .ifBlank { "D" }
-    }
-    val userPhotoUrl = remember(viewModel.isSignedIn, profileData) {
-        if (!viewModel.isSignedIn) {
-            ""
-        } else {
-            profileData?.photoUrl?.takeIf { it.isNotBlank() }
-                ?: Firebase.auth.currentUser?.photoUrl?.toString().orEmpty()
-        }
-    }
-    val hasProfilePhoto = userPhotoUrl.startsWith("http://") ||
-        userPhotoUrl.startsWith("https://") ||
-        userPhotoUrl.startsWith("content://") ||
-        userPhotoUrl.startsWith("file://") ||
-        userPhotoUrl.startsWith("img_")
 
     val refreshHoldFraction by animateFloatAsState(
         targetValue = if (isRefreshingFeed) 1f else 0f,
@@ -171,172 +192,234 @@ fun HomeScreen(
         pullToRefreshState.distanceFraction.coerceIn(0f, 1.35f),
         refreshHoldFraction
     )
-    val density = LocalDensity.current
-    val contentOffsetPx = with(density) { (pullSlotHeight * effectivePullFraction).toPx() }
 
-    Column(
+    val headerNestedScrollConnection = remember(decaySpec) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val maxCollapse = greetingHeightHolder[0]
+                val delta = available.y
+                if (delta < 0f && maxCollapse > 0f && headerOffsetPx > -maxCollapse) {
+                    val newOffset = (headerOffsetPx + delta).coerceIn(-maxCollapse, 0f)
+                    val consumed = newOffset - headerOffsetPx
+                    headerOffsetPx = newOffset
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                val maxCollapse = greetingHeightHolder[0]
+                val delta = available.y
+                if (delta > 0f && maxCollapse > 0f && headerOffsetPx < 0f) {
+                    val newOffset = (headerOffsetPx + delta).coerceIn(-maxCollapse, 0f)
+                    val consumedY = newOffset - headerOffsetPx
+                    headerOffsetPx = newOffset
+                    return Offset(0f, consumedY)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                val maxCollapse = greetingHeightHolder[0]
+                val velocityY = available.y
+                if (maxCollapse > 0f && velocityY < 0f && headerOffsetPx > -maxCollapse) {
+                    var remainingVelocity = velocityY
+                    AnimationState(
+                        initialValue = headerOffsetPx,
+                        initialVelocity = velocityY
+                    ).animateDecay(decaySpec) {
+                        headerOffsetPx = value.coerceIn(-maxCollapse, 0f)
+                        remainingVelocity = velocity
+                        if (value <= -maxCollapse) {
+                            headerOffsetPx = -maxCollapse
+                            cancelAnimation()
+                        }
+                    }
+                    return Velocity(0f, velocityY - remainingVelocity)
+                }
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                val maxCollapse = greetingHeightHolder[0]
+                val velocityY = available.y
+                if (maxCollapse > 0f && velocityY > 0f && headerOffsetPx < 0f) {
+                    var remainingVelocity = velocityY
+                    AnimationState(
+                        initialValue = headerOffsetPx,
+                        initialVelocity = velocityY
+                    ).animateDecay(decaySpec) {
+                        headerOffsetPx = value.coerceIn(-maxCollapse, 0f)
+                        remainingVelocity = velocity
+                        if (value >= 0f) {
+                            headerOffsetPx = 0f
+                            cancelAnimation()
+                        }
+                    }
+                    return Velocity(0f, velocityY - remainingVelocity)
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
+    val headerScrollForwarder = rememberScrollableState { delta ->
+        -listState.dispatchRawDelta(-delta)
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
+            .clipToBounds()
+            .pullToRefresh(
+                isRefreshing = isRefreshingFeed,
+                state = pullToRefreshState,
+                threshold = pullThreshold,
+                onRefresh = viewModel::refreshDynamicFeed
+            )
+            .nestedScroll(headerNestedScrollConnection)
     ) {
-        // PINNED HEADER: Avatar (48dp), 2-line greeting (48dp), & Notification Bell (48dp)
-        // sejajar rata atas-bawah serta rata tepi kiri-kanan dengan kolom pencarian
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(
-                    start = DiajakSpacing.ScreenHorizontal,
-                    end = DiajakSpacing.ScreenHorizontal,
-                    top = 14.dp,
-                    bottom = 12.dp
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
-        ) {
-            // Profile Avatar (ukuran sama persis dengan bulatan ikon notifikasi lonceng)
-            Box(
-                modifier = Modifier
-                    .size(DiajakComponentSize.ActionCircle)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .clickable(onClick = onOpenProfile)
-                    .testTag("home_profile_avatar"),
-                contentAlignment = Alignment.Center
-            ) {
-                if (viewModel.isSignedIn) {
-                    Text(
-                        text = avatarInitials,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (hasProfilePhoto) {
-                        DiajakPhoto(
-                            photoKey = userPhotoUrl,
-                            contentDescription = stringResource(R.string.cd_profile_avatar),
-                            modifier = Modifier.fillMaxSize()
+        Layout(
+            content = {
+                // 0: COLLAPSIBLE GREETING HEADER ("Halo Username" + "Mau diajak kemana?" + Lonceng 48.dp)
+                // Sisi atas & bawah teks sejajar dengan bulatan lonceng 48.dp; ikut naik & tenggelam saat scroll
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
+                        .scrollable(
+                            state = headerScrollForwarder,
+                            orientation = Orientation.Vertical,
+                            reverseDirection = false
+                        )
+                        .padding(
+                            start = DiajakSpacing.ScreenHorizontal,
+                            end = DiajakSpacing.ScreenHorizontal,
+                            top = DiajakHeaderSpec.PaddingTop,
+                            bottom = 2.dp
+                        )
+                        .height(DiajakHeaderSpec.ContentHeight),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Halo $firstName",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontSize = DiajakHeaderSpec.TitleFontSize,
+                                lineHeight = DiajakHeaderSpec.TitleLineHeight,
+                                letterSpacing = DiajakHeaderSpec.TitleLetterSpacing,
+                                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                                lineHeightStyle = LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Top,
+                                    trim = LineHeightStyle.Trim.Both
+                                )
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("home_greeting_text")
+                        )
+
+                        Text(
+                            text = stringResource(R.string.home_greeting_subtitle),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp,
+                                lineHeight = 16.sp,
+                                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                                lineHeightStyle = LineHeightStyle(
+                                    alignment = LineHeightStyle.Alignment.Bottom,
+                                    trim = LineHeightStyle.Trim.Both
+                                )
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("home_greeting_subtitle")
                         )
                     }
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.PersonOutline,
-                        contentDescription = stringResource(R.string.cd_profile_avatar),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(DiajakIconSize.Primary)
-                    )
-                }
-            }
 
-            // Two-line welcome text: sapaan tebal hitam di atas & subjudul kecil abu-abu sangat rapat di bawah
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                Text(
-                    text = "Halo $firstName",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        lineHeight = 20.sp,
-                        platformStyle = PlatformTextStyle(includeFontPadding = false),
-                        lineHeightStyle = LineHeightStyle(
-                            alignment = LineHeightStyle.Alignment.Center,
-                            trim = LineHeightStyle.Trim.Both
-                        )
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("home_greeting_text")
-                )
-
-                Text(
-                    text = stringResource(R.string.home_greeting_subtitle),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        lineHeight = 15.sp,
-                        platformStyle = PlatformTextStyle(includeFontPadding = false),
-                        lineHeightStyle = LineHeightStyle(
-                            alignment = LineHeightStyle.Alignment.Center,
-                            trim = LineHeightStyle.Trim.Both
-                        )
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("home_greeting_subtitle")
-                )
-            }
-
-            // Notification Bell
-            Box(
-                modifier = Modifier
-                    .size(DiajakComponentSize.ActionCircle)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .clickable(onClick = onOpenNotifications)
-                    .testTag("home_notifications_button"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Notifications,
-                    contentDescription = "Notifikasi",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(DiajakIconSize.Primary)
-                )
-                if (unreadNotifCount > 0) {
+                    // Notification Bell (48.dp — identik posisi & diameter dengan Back & Love Detail serta header lain)
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(10.dp)
-                            .size(9.dp)
+                            .size(DiajakHeaderSpec.ButtonSize)
                             .clip(CircleShape)
-                            .background(HeartRed)
-                    )
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .clickable(onClick = onOpenNotifications)
+                            .testTag("home_notifications_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Notifications,
+                            contentDescription = "Notifikasi",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(DiajakIconSize.Primary)
+                        )
+                        if (unreadNotifCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(10.dp)
+                                    .size(9.dp)
+                                    .clip(CircleShape)
+                                    .background(HeartRed)
+                            )
+                        }
+                    }
                 }
-            }
-        }
 
-        // SCROLLABLE FEED AREA DENGAN INSTAGRAM PUSH-DOWN PULL-TO-REFRESH
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clipToBounds()
-                .pullToRefresh(
-                    isRefreshing = isRefreshingFeed,
-                    state = pullToRefreshState,
-                    threshold = pullThreshold,
-                    onRefresh = viewModel::refreshDynamicFeed
-                )
-        ) {
-            if (effectivePullFraction > 0.02f || isRefreshingFeed) {
+                // 1: PULL-TO-REFRESH SPINNER SLOT (di bawah sapaan, tepat di atas kolom pencarian)
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (effectivePullFraction > 0.02f || isRefreshingFeed) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(pullSlotHeight * effectivePullFraction)
+                                .clipToBounds()
+                                .testTag("home_pull_refresh_spinner"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            InstagramSpinner(
+                                isSpinning = isRefreshingFeed,
+                                progress = effectivePullFraction.coerceIn(0f, 1f),
+                                size = 26.dp,
+                                contentDescription = "Menyegarkan beranda"
+                            )
+                        }
+                    }
+                }
+
+                // 2: STICKY FLAT SEARCH BAR HEADER (menempel putih polos flat tanpa garis/bayangan di bawah status bar)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(pullSlotHeight * effectivePullFraction)
-                        .align(Alignment.TopCenter)
-                        .testTag("home_pull_refresh_spinner"),
-                    contentAlignment = Alignment.Center
+                        .background(MaterialTheme.colorScheme.background)
+                        .scrollable(
+                            state = headerScrollForwarder,
+                            orientation = Orientation.Vertical,
+                            reverseDirection = false
+                        )
+                        .padding(
+                            start = DiajakSpacing.ScreenHorizontal,
+                            end = DiajakSpacing.ScreenHorizontal,
+                            top = DiajakHeaderSpec.PaddingTop,
+                            bottom = DiajakHeaderSpec.PaddingBottom
+                        )
                 ) {
-                    InstagramSpinner(
-                        isSpinning = isRefreshingFeed,
-                        progress = effectivePullFraction.coerceIn(0f, 1f),
-                        size = 26.dp,
-                        contentDescription = "Menyegarkan beranda"
-                    )
-                }
-            }
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { translationY = contentOffsetPx },
-                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
-            ) {
-                // SEARCH BAR
-                item(key = "home_search_bar") {
                     DiajakFlatTextField(
                         value = filters.searchQuery,
                         onValueChange = viewModel::updateSearchQuery,
@@ -364,13 +447,21 @@ fun HomeScreen(
                                 )
                             }
                         },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         shape = DiajakRadius.Pill,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = DiajakSpacing.ScreenHorizontal)
                             .testTag("home_search_input")
                     )
                 }
+
+                // 3: SCROLLABLE FEED AREA (Chip Kategori + Feed Aktivitas)
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = DiajakHeaderSpec.ContentTopGap, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
+                ) {
 
                 // NICHE CATEGORY STRIP (69 Niches via All button + Quick Horizontal Chips)
                 item(key = "home_niche_strip") {
@@ -390,7 +481,8 @@ fun HomeScreen(
                             Surface(
                                 onClick = { showNicheSheet = true },
                                 shape = DiajakRadius.Pill,
-                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                color = Color.White,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 tonalElevation = 0.dp,
                                 shadowElevation = 0.dp,
                                 modifier = Modifier.testTag("open_all_niches_button")
@@ -526,6 +618,39 @@ fun HomeScreen(
                 }
             }
         }
+        ) { measurables, constraints ->
+            val unbounded = constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
+            val greetingPlaceable = measurables[0].measure(unbounded)
+            val spinnerPlaceable = measurables[1].measure(unbounded)
+            val searchPlaceable = measurables[2].measure(unbounded)
+
+            val greetingHeight = greetingPlaceable.height
+            greetingHeightHolder[0] = greetingHeight.toFloat()
+
+            val offsetInt = headerOffsetPx
+                .coerceIn(-greetingHeight.toFloat(), 0f)
+                .roundToInt()
+            val visibleGreetingHeight = (greetingHeight + offsetInt).coerceIn(0, greetingHeight)
+            val spinnerHeight = spinnerPlaceable.height
+            val searchTopY = visibleGreetingHeight + spinnerHeight
+            val feedTopY = searchTopY + searchPlaceable.height
+            val feedHeight = (constraints.maxHeight - feedTopY).coerceAtLeast(0)
+
+            val feedPlaceable = measurables[3].measure(
+                constraints.copy(minHeight = feedHeight, maxHeight = feedHeight)
+            )
+
+            layout(constraints.maxWidth, constraints.maxHeight) {
+                feedPlaceable.placeRelative(0, feedTopY)
+                if (spinnerHeight > 0) {
+                    spinnerPlaceable.placeRelative(0, visibleGreetingHeight)
+                }
+                searchPlaceable.placeRelative(0, searchTopY)
+                if (visibleGreetingHeight > 0) {
+                    greetingPlaceable.placeRelative(0, offsetInt)
+                }
+            }
+        }
     }
 
     if (showNicheSheet) {
@@ -537,3 +662,4 @@ fun HomeScreen(
         )
     }
 }
+

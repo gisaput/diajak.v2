@@ -34,16 +34,12 @@ import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,12 +58,13 @@ import com.example.data.ActivityReview
 import com.example.data.DiajakCatalog
 import com.example.data.UiState
 import com.example.ui.DiajakViewModel
-import com.example.ui.components.DiajakBackButton
 import com.example.ui.components.DiajakFlatSecondaryButton
 import com.example.ui.components.DiajakFlatTextField
+import com.example.ui.components.DiajakPageScaffold
 import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.RatingStars
+import com.example.ui.components.dismissKeyboardOnOutsideTouch
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
@@ -80,7 +77,6 @@ import com.example.ui.theme.WarningAmberSurface
 
 // --- MODULE 2: KELOLA PENDAFTARAN ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageRegistrationsScreen(
     viewModel: DiajakViewModel,
@@ -100,26 +96,15 @@ fun ManageRegistrationsScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kelola Pendaftaran", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("manage_registrations_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        }
-    ) { innerPadding ->
+    DiajakPageScaffold(
+        title = "Kelola Pendaftaran",
+        onBack = onBack,
+        backButtonTestTag = "manage_registrations_back_button",
+        titleTestTag = "manage_registrations_header_title"
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
         ) {
             item {
@@ -146,7 +131,8 @@ fun ManageRegistrationsScreen(
                     EmptyStatePanel(
                         icon = Icons.Rounded.ConfirmationNumber,
                         title = "Belum ada pendaftar",
-                        subtitle = "Peserta yang memesan tiket aktivitasmu akan muncul secara real-time di sini untuk proses check-in."
+                        subtitle = "Peserta yang memesan tiket aktivitasmu akan muncul secara real-time di sini untuk proses check-in.",
+                        outerPadding = PaddingValues(0.dp)
                     )
                 }
             } else {
@@ -206,7 +192,6 @@ fun ManageRegistrationsScreen(
 
 // --- MODULE 3: KELOLA PESAN ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageOrganizerMessagesScreen(
     viewModel: DiajakViewModel,
@@ -215,27 +200,15 @@ fun ManageOrganizerMessagesScreen(
 ) {
     val convState by viewModel.conversationsState.collectAsStateWithLifecycle()
     val convs = (convState as? UiState.Success)?.data ?: emptyList()
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kelola Pesan", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("manage_messages_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        }
-    ) { innerPadding ->
+    DiajakPageScaffold(
+        title = "Kelola Pesan",
+        onBack = onBack,
+        backButtonTestTag = "manage_messages_back_button",
+        titleTestTag = "manage_messages_header_title"
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
         ) {
             if (convs.isEmpty()) {
@@ -243,7 +216,8 @@ fun ManageOrganizerMessagesScreen(
                     EmptyStatePanel(
                         icon = Icons.AutoMirrored.Rounded.Chat,
                         title = "Belum ada pesan masuk",
-                        subtitle = "Pertanyaan peserta dan grup chat aktivitas yang kamu kelola akan tampil di sini."
+                        subtitle = "Pertanyaan peserta dan grup chat aktivitas yang kamu kelola akan tampil di sini.",
+                        outerPadding = PaddingValues(0.dp)
                     )
                 }
             } else {
@@ -260,7 +234,6 @@ fun ManageOrganizerMessagesScreen(
 
 // --- MODULE 4: KELOLA SALDO ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageBalanceScreen(
     viewModel: DiajakViewModel,
@@ -270,27 +243,15 @@ fun ManageBalanceScreen(
     val txs by viewModel.walletTransactionsState.collectAsStateWithLifecycle()
     val isBusy by viewModel.isBusy.collectAsStateWithLifecycle()
     var showWithdrawDialog by remember { mutableStateOf(false) }
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kelola Saldo", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("manage_balance_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        }
-    ) { innerPadding ->
+    DiajakPageScaffold(
+        title = "Kelola Saldo",
+        onBack = onBack,
+        backButtonTestTag = "manage_balance_back_button",
+        titleTestTag = "manage_balance_header_title"
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
         ) {
             item {
@@ -342,7 +303,8 @@ fun ManageBalanceScreen(
                     EmptyStatePanel(
                         icon = Icons.Rounded.AccountBalanceWallet,
                         title = "Belum ada mutasi saldo",
-                        subtitle = "Pendapatan dari setiap tiket aktivitas berbayar yang dipesan peserta otomatis masuk ke saldo ini."
+                        subtitle = "Pendapatan dari setiap tiket aktivitas berbayar yang dipesan peserta otomatis masuk ke saldo ini.",
+                        outerPadding = PaddingValues(0.dp)
                     )
                 }
             } else {
@@ -388,6 +350,7 @@ fun ManageBalanceScreen(
         var dest by remember { mutableStateOf("BCA / GoPay a.n. Penyelenggara") }
         AlertDialog(
             onDismissRequest = { showWithdrawDialog = false },
+            modifier = Modifier.dismissKeyboardOnOutsideTouch(),
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             title = { Text("Tarik Saldo Penyelenggara", style = MaterialTheme.typography.titleLarge) },
@@ -438,7 +401,6 @@ fun ManageBalanceScreen(
 
 // --- MODULE 5: KELOLA ULASAN ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageReviewsScreen(
     viewModel: DiajakViewModel,
@@ -446,27 +408,15 @@ fun ManageReviewsScreen(
 ) {
     val myActivitiesState by viewModel.organizerActivitiesState.collectAsStateWithLifecycle()
     val myActivities = (myActivitiesState as? UiState.Success)?.data ?: emptyList()
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kelola Ulasan", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("manage_reviews_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        }
-    ) { innerPadding ->
+    DiajakPageScaffold(
+        title = "Kelola Ulasan",
+        onBack = onBack,
+        backButtonTestTag = "manage_reviews_back_button",
+        titleTestTag = "manage_reviews_header_title"
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
         ) {
             if (myActivities.isEmpty()) {
@@ -474,7 +424,8 @@ fun ManageReviewsScreen(
                     EmptyStatePanel(
                         icon = Icons.Rounded.RateReview,
                         title = "Belum ada ulasan masuk",
-                        subtitle = "Terbitkan aktivitas pertamamu agar peserta dapat memberikan rating dan ulasan yang bisa kamu balas."
+                        subtitle = "Terbitkan aktivitas pertamamu agar peserta dapat memberikan rating dan ulasan yang bisa kamu balas.",
+                        outerPadding = PaddingValues(0.dp)
                     )
                 }
             } else {
@@ -551,6 +502,7 @@ private fun OrganizerActivityReviewsSection(
         var replyText by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { replyingReview = null },
+            modifier = Modifier.dismissKeyboardOnOutsideTouch(),
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             title = { Text("Balas Ulasan ${targetRev.authorName}", style = MaterialTheme.typography.titleLarge) },
@@ -588,7 +540,6 @@ private fun OrganizerActivityReviewsSection(
 
 // --- MODULE 6: KELOLA DOKUMEN (KTP KYC VERIFICATION GATE) ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageDocumentsScreen(
     viewModel: DiajakViewModel,
@@ -611,26 +562,15 @@ fun ManageDocumentsScreen(
         if (uri != null) docPhotoUri = uri.toString()
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kelola Dokumen (KTP)", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("manage_documents_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        }
-    ) { innerPadding ->
+    DiajakPageScaffold(
+        title = "Kelola Dokumen (KTP)",
+        onBack = onBack,
+        backButtonTestTag = "manage_documents_back_button",
+        titleTestTag = "manage_documents_header_title"
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
         ) {
             item {

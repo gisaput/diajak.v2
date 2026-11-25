@@ -37,17 +37,13 @@ import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,9 +64,9 @@ import com.example.data.ActivityItem
 import com.example.data.DiajakCatalog
 import com.example.data.UiState
 import com.example.ui.DiajakViewModel
-import com.example.ui.components.DiajakBackButton
 import com.example.ui.components.DiajakFlatSecondaryButton
 import com.example.ui.components.DiajakFlatTextField
+import com.example.ui.components.DiajakPageScaffold
 import com.example.ui.components.DiajakPhoto
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.NichePickerBottomSheet
@@ -92,7 +88,6 @@ enum class OrganizerModuleRoute(val route: String, val title: String, val subtit
     DOCUMENTS("org_documents", "Kelola Dokumen", "Verifikasi KTP wajib")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrganizerPortalScreen(
     viewModel: DiajakViewModel,
@@ -110,35 +105,15 @@ fun OrganizerPortalScreen(
     val activeCount = myActivities.count { it.status == "PUBLISHED" }
     val totalRegistrants = myBookings.sumOf { it.ticketCount }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Portal Penyelenggara", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            text = "diajak.com Organizer Center",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("organizer_portal_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        }
-    ) { innerPadding ->
+    DiajakPageScaffold(
+        title = "Portal Penyelenggara",
+        onBack = onBack,
+        backButtonTestTag = "organizer_portal_back_button",
+        titleTestTag = "organizer_portal_header_title"
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
         ) {
             // KYC Verification Gate Banner
@@ -373,7 +348,6 @@ private fun OrganizerModuleTile(
 
 // --- MODULE 1: KELOLA AKTIVITAS (LIST + CREATE/EDIT WITH KYC PUBLISH GATE) ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageActivitiesScreen(
     viewModel: DiajakViewModel,
@@ -406,20 +380,12 @@ fun ManageActivitiesScreen(
         return
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Kelola Aktivitas", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("manage_activities_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        },
+    DiajakPageScaffold(
+        title = "Kelola Aktivitas",
+        onBack = onBack,
+        backButtonTestTag = "manage_activities_back_button",
+        titleTestTag = "manage_activities_header_title",
+        extraBottomPadding = 88.dp,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -429,7 +395,9 @@ fun ManageActivitiesScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-                modifier = Modifier.testTag("create_activity_fab")
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .testTag("create_activity_fab")
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
@@ -438,12 +406,10 @@ fun ManageActivitiesScreen(
                 )
             }
         }
-    ) { innerPadding ->
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.ItemGap)
         ) {
             if (!isVerified) {
@@ -474,7 +440,8 @@ fun ManageActivitiesScreen(
                         onAction = {
                             editingActivity = null
                             showForm = true
-                        }
+                        },
+                        outerPadding = PaddingValues(0.dp)
                     )
                 }
             } else {
@@ -580,7 +547,6 @@ fun ManageActivitiesScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActivityEditorFormScreen(
     existing: ActivityItem?,
@@ -649,25 +615,12 @@ private fun ActivityEditorFormScreen(
         )
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (existing == null) "Buat Aktivitas" else "Edit Aktivitas",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                navigationIcon = {
-                    DiajakBackButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("activity_editor_back_button")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        },
+    DiajakPageScaffold(
+        title = if (existing == null) "Buat Aktivitas" else "Edit Aktivitas",
+        onBack = onBack,
+        backButtonTestTag = "activity_editor_back_button",
+        titleTestTag = "activity_editor_header_title",
+        applyNavigationBarBottomPadding = false,
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(modifier = Modifier.navigationBarsPadding()) {
@@ -707,12 +660,10 @@ private fun ActivityEditorFormScreen(
                 }
             }
         }
-    ) { innerPadding ->
+    ) { contentPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(DiajakSpacing.ScreenHorizontal),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
         ) {
             if (!isVerified) {

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -55,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.DevBypassSession
 import com.example.data.DiajakCatalog
 import com.example.data.UiState
 import com.example.data.UserProfile
@@ -62,7 +61,9 @@ import com.example.ui.DiajakViewModel
 import com.example.ui.auth.signOutUser
 import com.example.ui.components.DiajakFlatSecondaryButton
 import com.example.ui.components.DiajakFlatTextField
+import com.example.ui.components.DiajakPageScaffold
 import com.example.ui.components.InitialAvatar
+import com.example.ui.components.dismissKeyboardOnOutsideTouch
 import com.example.ui.theme.DiajakComponentSize
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakRadius
@@ -90,33 +91,34 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
 
+    val isDevBypass = DevBypassSession.isDevUserId(viewModel.currentUserId)
     val profile = (profileState as? UiState.Success)?.data ?: UserProfile(
         userId = viewModel.currentUserId.orEmpty(),
-        displayName = Firebase.auth.currentUser?.displayName ?: "Pengguna Diajak",
+        displayName = Firebase.auth.currentUser?.displayName ?: if (isDevBypass) "Developer Diajak" else "Pengguna Diajak",
         photoUrl = Firebase.auth.currentUser?.photoUrl?.toString().orEmpty()
     )
-    val userEmail = Firebase.auth.currentUser?.email.orEmpty()
+    val userEmail = if (isDevBypass) {
+        DevBypassSession.DEV_USER_LABEL
+    } else {
+        Firebase.auth.currentUser?.email.orEmpty()
+    }
     val bookingCount = (bookingsState as? UiState.Success)?.data?.size ?: 0
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
+    DiajakPageScaffold(
+        title = "Profil",
+        titleTestTag = "profile_header_title",
+        applyNavigationBarBottomPadding = false,
         modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = DiajakSpacing.ScreenHorizontal, vertical = DiajakSpacing.SectionGap),
-        verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
-    ) {
-        item {
-            Text(
-                text = "Profil",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
+    ) { contentPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(DiajakSpacing.SectionGap)
+        ) {
 
         // Clean Instagram-style profile summary card
         item {
@@ -345,11 +347,12 @@ fun ProfileScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Keluar Akun",
+                    text = if (isDevBypass) "Keluar Mode Dev" else "Keluar Akun",
                     style = MaterialTheme.typography.labelLarge,
                     color = ErrorRed
                 )
             }
+        }
         }
     }
 
@@ -510,6 +513,7 @@ private fun EditProfileDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.dismissKeyboardOnOutsideTouch(),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         title = { Text("Edit Profil", style = MaterialTheme.typography.titleLarge) },

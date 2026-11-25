@@ -1,17 +1,23 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -19,16 +25,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -46,16 +57,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -64,36 +79,50 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.CityOption
 import com.example.data.DiajakCatalog
 import com.example.data.NicheCategory
 import com.example.ui.theme.DiajakComponentSize
+import com.example.ui.theme.DiajakHeaderSpec
 import com.example.ui.theme.DiajakIconSize
 import com.example.ui.theme.DiajakPhotoOverlay
 import com.example.ui.theme.DiajakRadius
 import com.example.ui.theme.DiajakSpacing
 import com.example.ui.theme.StarGold
+import com.example.ui.theme.DiajakSurfaceGray
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
  * Tombol ikon bulat baku Diajak sesuai Aturan Kontras Pembungkus Ikon:
- * - Di atas latar putih (`nested = false`): bulatan abu-abu #E5E5EA (`surfaceContainer`),
+ * - Di atas latar putih (`nested = false`): bulatan abu-abu #F2F2F2 (`surfaceContainer`),
  *   diameter 48.dp (`ActionCircle`), ikon JetBlack 24.dp (`Primary`) — identik dengan Lonceng Beranda.
  * - Di dalam kartu abu-abu (`nested = true`): bulatan putih #FFFFFF (`surfaceContainerHigh`),
  *   diameter 48.dp (`ActionCircle`), ikon JetBlack 24.dp (`Primary`).
@@ -136,7 +165,7 @@ fun DiajakCircleIconButton(
 
 /**
  * Tombol Kembali (Back) baku di atas latar/header putih (#FFFFFF).
- * Memakai bulatan abu-abu #E5E5EA (48.dp) + ikon ArrowBack hitam (#111111, 24.dp).
+ * Memakai bulatan abu-abu #F2F2F2 (48.dp) + ikon ArrowBack hitam (#111111, 24.dp).
  * Saat dipakai di slot `navigationIcon` pada TopAppBar (`inTopAppBar = true`),
  * posisi bulatan disejajarkan rapi dengan margin layar 20.dp dan jarak 8.dp sebelum judul.
  */
@@ -169,8 +198,311 @@ fun DiajakBackButton(
 }
 
 /**
+ * Header halaman baku Diajak (aturan mutlak untuk seluruh halaman selain sapaan Beranda):
+ * - Dimensi & posisi tombol bulat 100% identik dengan Header Beranda & Detail Aktivitas:
+ *   statusBarsPadding() + padding(start/end = 20.dp, top = 14.dp, bottom = 12.dp)
+ *   + tinggi slot konten tepat 48.dp (total 74.dp di bawah status bar).
+ * - Judul selalu 1 baris tanpa subtitle, ukuran baku 22.sp Bold (identik dengan "Halo Username"
+ *   di Beranda), rata tengah (Center) horizontal & vertikal tepat sejajar titik tengah bulatan
+ *   tombol 48.dp (gaya Instagram & Shopee).
+ * - Posisi pusat judul 100% sama baik pada halaman bertombol Back maupun tanpa tombol Back.
+ */
+@Composable
+fun DiajakPageHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    backButtonTestTag: String? = null,
+    titleTestTag: String? = null,
+    trailingAction: (@Composable BoxScope.() -> Unit)? = null,
+    applyStatusBarsPadding: Boolean = true
+) {
+    val sideSlotWidth = DiajakHeaderSpec.ButtonSize
+    val hasSideAction = onBack != null || trailingAction != null
+    val titleHorizontalInset = if (hasSideAction) sideSlotWidth + DiajakSpacing.SmallGap else 0.dp
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .then(if (applyStatusBarsPadding) Modifier.statusBarsPadding() else Modifier)
+            .padding(
+                start = DiajakSpacing.ScreenHorizontal,
+                end = DiajakSpacing.ScreenHorizontal,
+                top = DiajakHeaderSpec.PaddingTop,
+                bottom = DiajakHeaderSpec.PaddingBottom
+            )
+            .height(DiajakHeaderSpec.ContentHeight)
+    ) {
+        if (onBack != null) {
+            DiajakBackButton(
+                onClick = onBack,
+                inTopAppBar = false,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .then(
+                        if (backButtonTestTag != null) Modifier.testTag(backButtonTestTag) else Modifier
+                    )
+            )
+        }
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = DiajakHeaderSpec.TitleFontSize,
+                lineHeight = DiajakHeaderSpec.TitleLineHeight,
+                letterSpacing = DiajakHeaderSpec.TitleLetterSpacing,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both
+                )
+            ),
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(horizontal = titleHorizontalInset)
+                .then(
+                    if (titleTestTag != null) Modifier.testTag(titleTestTag) else Modifier
+                )
+        )
+
+        if (trailingAction != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(sideSlotWidth),
+                contentAlignment = Alignment.Center,
+                content = trailingAction
+            )
+        }
+    }
+}
+
+/**
+ * Wadah halaman baku Diajak (ATURAN MUTLAK untuk seluruh halaman saat ini & halaman baru di masa depan,
+ * kecuali tata letak khusus `HomeScreen` Beranda & `ActivityDetailScreen` Detail Aktivitas yang tetap
+ * memakai dimensi & posisi bulatan tombol `DiajakHeaderSpec` yang identik):
+ * - Memasang [DiajakPageHeader] secara otomatis (judul 1 baris, rata tengah horizontal & vertikal,
+ *   font baku `22.sp` Bold identik dengan "Halo Username" di Beranda, koordinat identik baik dengan maupun tanpa tombol Back).
+ * - Perilaku scroll baku (`pinnedHeader = false` — Opsi A / ikut konten murni): header ikut naik &
+ *   tenggelam ke atas bersama konten saat layar discroll, dan baru muncul kembali saat konten kembali
+ *   ke posisi paling atas. Area status bar tetap putih solid agar konten tidak menabrak ikon status bar.
+ * - Khusus Ruang Chat (`ChatRoomScreen`), gunakan `pinnedHeader = true` agar header tetap menempel.
+ * - Mengunci `contentWindowInsets = WindowInsets(0, 0, 0, 0)` agar inset status bar tidak pernah ganda.
+ * - Menyediakan `contentPadding` terkunci (`start/end = 20.dp`, `top = DiajakHeaderSpec.ContentTopGap 4.dp`,
+ *   `bottom = extraBottomPadding + navBarInset`) sehingga jarak visual dari bawah slot header `48.dp`
+ *   ke konten pertama selalu persis `16.dp` di seluruh layar — identik dengan Beranda.
+ */
+@Composable
+fun DiajakPageScaffold(
+    title: String,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    backButtonTestTag: String? = null,
+    titleTestTag: String? = null,
+    trailingAction: (@Composable BoxScope.() -> Unit)? = null,
+    bottomBar: @Composable () -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    applyNavigationBarBottomPadding: Boolean = true,
+    extraBottomPadding: Dp = 24.dp,
+    pinnedHeader: Boolean = false,
+    headerResetKey: Any? = null,
+    content: @Composable (contentPadding: PaddingValues) -> Unit
+) {
+    val navBarBottom = if (applyNavigationBarBottomPadding) {
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    } else {
+        0.dp
+    }
+    val contentPaddingValues = PaddingValues(
+        start = DiajakSpacing.ScreenHorizontal,
+        end = DiajakSpacing.ScreenHorizontal,
+        top = DiajakHeaderSpec.ContentTopGap,
+        bottom = extraBottomPadding + navBarBottom
+    )
+
+    if (pinnedHeader) {
+        Scaffold(
+            modifier = modifier,
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            topBar = {
+                DiajakPageHeader(
+                    title = title,
+                    onBack = onBack,
+                    backButtonTestTag = backButtonTestTag,
+                    titleTestTag = titleTestTag,
+                    trailingAction = trailingAction,
+                    applyStatusBarsPadding = true
+                )
+            },
+            bottomBar = bottomBar,
+            floatingActionButton = floatingActionButton
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                content(contentPaddingValues)
+            }
+        }
+        return
+    }
+
+    val decaySpec = rememberSplineBasedDecay<Float>()
+    val headerHeightHolder = remember { FloatArray(1) }
+    var headerOffsetPx by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(title, headerResetKey) {
+        if (headerOffsetPx != 0f) {
+            animate(
+                initialValue = headerOffsetPx,
+                targetValue = 0f
+            ) { value, _ ->
+                headerOffsetPx = value
+            }
+        }
+    }
+
+    val nestedScrollConnection = remember(decaySpec) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val maxCollapse = headerHeightHolder[0]
+                val delta = available.y
+                if (delta < 0f && maxCollapse > 0f && headerOffsetPx > -maxCollapse) {
+                    val newOffset = (headerOffsetPx + delta).coerceIn(-maxCollapse, 0f)
+                    val consumed = newOffset - headerOffsetPx
+                    headerOffsetPx = newOffset
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                val maxCollapse = headerHeightHolder[0]
+                val delta = available.y
+                if (delta > 0f && maxCollapse > 0f && headerOffsetPx < 0f) {
+                    val newOffset = (headerOffsetPx + delta).coerceIn(-maxCollapse, 0f)
+                    val consumedY = newOffset - headerOffsetPx
+                    headerOffsetPx = newOffset
+                    return Offset(0f, consumedY)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                val maxCollapse = headerHeightHolder[0]
+                val velocityY = available.y
+                if (maxCollapse <= 0f) return Velocity.Zero
+
+                if (velocityY > 0f && headerOffsetPx < 0f) {
+                    var remainingVelocity = velocityY
+                    AnimationState(
+                        initialValue = headerOffsetPx,
+                        initialVelocity = velocityY
+                    ).animateDecay(decaySpec) {
+                        headerOffsetPx = value.coerceIn(-maxCollapse, 0f)
+                        remainingVelocity = velocity
+                        if (value >= 0f) {
+                            headerOffsetPx = 0f
+                            cancelAnimation()
+                        }
+                    }
+                    return Velocity(0f, velocityY - remainingVelocity)
+                }
+
+                if (velocityY < 0f && headerOffsetPx > -maxCollapse) {
+                    var remainingVelocity = velocityY
+                    AnimationState(
+                        initialValue = headerOffsetPx,
+                        initialVelocity = velocityY
+                    ).animateDecay(decaySpec) {
+                        headerOffsetPx = value.coerceIn(-maxCollapse, 0f)
+                        remainingVelocity = velocity
+                        if (value <= -maxCollapse) {
+                            headerOffsetPx = -maxCollapse
+                            cancelAnimation()
+                        }
+                    }
+                    return Velocity(0f, velocityY - remainingVelocity)
+                }
+
+                return Velocity.Zero
+            }
+        }
+    }
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = bottomBar,
+        floatingActionButton = floatingActionButton
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .padding(innerPadding)
+                .nestedScroll(nestedScrollConnection)
+                .clipToBounds()
+        ) {
+            Layout(
+                content = {
+                    DiajakPageHeader(
+                        title = title,
+                        onBack = onBack,
+                        backButtonTestTag = backButtonTestTag,
+                        titleTestTag = titleTestTag,
+                        trailingAction = trailingAction,
+                        applyStatusBarsPadding = false
+                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        content(contentPaddingValues)
+                    }
+                }
+            ) { measurables, constraints ->
+                val headerPlaceable = measurables[0].measure(
+                    constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity)
+                )
+                val measuredHeaderHeight = headerPlaceable.height
+                headerHeightHolder[0] = measuredHeaderHeight.toFloat()
+
+                val clampedOffset = headerOffsetPx.coerceIn(-measuredHeaderHeight.toFloat(), 0f)
+                val offsetInt = clampedOffset.roundToInt()
+                val visibleHeaderHeight = (measuredHeaderHeight + offsetInt)
+                    .coerceIn(0, measuredHeaderHeight)
+                val contentHeight = (constraints.maxHeight - visibleHeaderHeight).coerceAtLeast(0)
+
+                val contentPlaceable = measurables[1].measure(
+                    constraints.copy(minHeight = contentHeight, maxHeight = contentHeight)
+                )
+
+                layout(constraints.maxWidth, constraints.maxHeight) {
+                    contentPlaceable.placeRelative(0, visibleHeaderHeight)
+                    if (visibleHeaderHeight > 0) {
+                        headerPlaceable.placeRelative(0, offsetInt)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Komponen TextField monokrom flat standar Diajak:
- * - Latar abu-abu tunggal #E5E5EA (atau putih #FFFFFF jika berada di dalam kartu abu-abu).
+ * - Latar abu-abu tunggal #F2F2F2 (atau putih #FFFFFF jika berada di dalam kartu abu-abu).
  * - 100% tanpa border dan tanpa bayangan.
  */
 @Composable
@@ -188,8 +520,27 @@ fun DiajakFlatTextField(
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     shape: Shape = DiajakRadius.Control,
     nested: Boolean = false,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions? = null
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val effectiveKeyboardActions = keyboardActions ?: remember(singleLine, focusManager, keyboardController) {
+        if (singleLine) {
+            KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                },
+                onSearch = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                }
+            )
+        } else {
+            KeyboardActions.Default
+        }
+    }
     val containerColor = if (nested) {
         MaterialTheme.colorScheme.surfaceContainerHigh
     } else {
@@ -231,6 +582,7 @@ fun DiajakFlatTextField(
         minLines = minLines,
         maxLines = maxLines,
         keyboardOptions = keyboardOptions,
+        keyboardActions = effectiveKeyboardActions,
         shape = shape,
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedContainerColor = containerColor,
@@ -245,13 +597,13 @@ fun DiajakFlatTextField(
             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
             cursorColor = MaterialTheme.colorScheme.primary
         ),
-        modifier = modifier
+        modifier = modifier.keepKeyboardOpenOnTouch(trackFocus = true)
     )
 }
 
 /**
  * Tombol sekunder monokrom flat standar Diajak (menggantikan seluruh OutlinedButton):
- * - Latar #E5E5EA di atas latar putih, atau putih #FFFFFF jika berada di dalam kartu #E5E5EA.
+ * - Latar #F2F2F2 di atas latar putih, atau putih #FFFFFF jika berada di dalam kartu #F2F2F2.
  * - 100% tanpa border dan tanpa shadow.
  */
 @Composable
@@ -372,12 +724,13 @@ fun EmptyStatePanel(
     subtitle: String,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    outerPadding: PaddingValues = PaddingValues(DiajakSpacing.ScreenHorizontal)
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(DiajakSpacing.ScreenHorizontal)
+            .padding(outerPadding)
             .clip(DiajakRadius.Card)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(horizontal = 24.dp, vertical = 32.dp),
@@ -527,6 +880,7 @@ fun NichePickerBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .dismissKeyboardOnOutsideTouch()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp)
         ) {
@@ -548,6 +902,7 @@ fun NichePickerBottomSheet(
                         modifier = Modifier.size(DiajakIconSize.Primary)
                     )
                 },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 shape = DiajakRadius.Control,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -603,15 +958,21 @@ fun NicheChipItem(
     emoji: String? = null,
     nested: Boolean = false
 ) {
-    val unselectedColor = if (nested) {
-        MaterialTheme.colorScheme.surfaceContainerHigh
+    val backgroundColor = if (selected) {
+        DiajakSurfaceGray
     } else {
-        MaterialTheme.colorScheme.surfaceContainer
+        Color.White
+    }
+    val border = if (!selected) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    } else {
+        null
     }
     Surface(
         onClick = onClick,
         shape = DiajakRadius.Pill,
-        color = if (selected) MaterialTheme.colorScheme.primary else unselectedColor,
+        color = backgroundColor,
+        border = border,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         modifier = modifier
@@ -646,7 +1007,7 @@ fun NicheChipItem(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -884,7 +1245,7 @@ fun rememberDiajakShimmerProgress(): Float {
 
 /**
  * Modifier latar shimmer baku Diajak — 100% tanpa warna abu-abu baru:
- * - Di atas latar putih (`nested = false`): memakai `DiajakSurfaceGray` (#E5E5EA) penuh (alpha 1.0f)
+ * - Di atas latar putih (`nested = false`): memakai `DiajakSurfaceGray` (#F2F2F2) penuh (alpha 1.0f)
  *   yang disapu gelombang pudar (alpha 0.35f) sehingga bertransisi mulus menuju latar putih (#FFFFFF).
  * - Di dalam kartu abu-abu (`nested = true`): memakai `PureWhite` (#FFFFFF) semi-transparan
  *   (0.70f <-> 0.38f) mengikuti aturan lapisan kontras resmi Diajak.
@@ -927,7 +1288,7 @@ fun Modifier.diajakShimmerSurface(
 
 /**
  * Blok rangka Skeleton / Shimmer standar Diajak yang secara otomatis memakai
- * `#E5E5EA` (`surfaceContainer`) di atas layar putih atau `#FFFFFF` (`surfaceContainerHigh`)
+ * `#F2F2F2` (`surfaceContainer`) di atas layar putih atau `#FFFFFF` (`surfaceContainerHigh`)
  * saat berada di dalam kartu skeleton.
  */
 @Composable
